@@ -97,9 +97,86 @@ async def process_transaction(tx: Transaction):
     return packet
 
 
+def parse_smart_int(val, default=0):
+    if val is None:
+        return default
+    s = str(val).strip().lower()
+    if s in ("", "none", "null", "nan"):
+        return default
+    if s in ("true", "yes", "y", "t", "1"):
+        return 1
+    if s in ("false", "no", "n", "f", "0"):
+        return 0
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return default
+
+
+def parse_smart_float(val, default=None):
+    if val is None:
+        return default
+    s = str(val).strip().lower()
+    if s in ("", "none", "null", "nan"):
+        return default
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return default
+
+
+def parse_smart_opt_int(val):
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in ("", "none", "null", "nan"):
+        return None
+    if s in ("true", "yes", "y", "t", "1"):
+        return 1
+    if s in ("false", "no", "n", "f", "0"):
+        return 0
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_smart_opt_float(val):
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in ("", "none", "null", "nan"):
+        return None
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return None
+
+
+CSV_ALIAS_MAP = {
+    "amount": ["amount", "amt", "transactionamt", "price", "tx_amount", "value"],
+    "transaction_id": ["transaction_id", "tx_id", "id", "transactionid", "txid", "tx_no"],
+    "merchant_category": ["merchant_category", "merchant", "category", "mcc", "merchantcategory"],
+    "distance_from_home": ["distance_from_home", "distance", "dist_from_home", "dist_home", "disthome", "home_distance"],
+    "distance_from_last_tx": ["distance_from_last_tx", "dist_from_last_tx", "dist_last", "distlast", "distance_last"],
+    "ratio_to_median_price": ["ratio_to_median_price", "ratio", "ratiomedian", "ratio_median", "price_ratio"],
+    "repeat_retailer": ["repeat_retailer", "repeat", "is_repeat", "repeatretailer"],
+    "used_chip": ["used_chip", "chip", "is_chip", "usedchip", "emv"],
+    "used_pin": ["used_pin", "pin", "is_pin", "usedpin"],
+    "online_order": ["online_order", "online", "is_online", "onlineorder", "ecommerce"],
+    "velocity_1h": ["velocity_1h", "velocity1h", "vel_1h", "vel1h", "velocity", "velocity_hour"],
+    "velocity_24h": ["velocity_24h", "velocity24h", "vel_24h", "vel24h", "velocity_day"],
+    "device_trust_score": ["device_trust_score", "device_trust", "trust_score", "devicetrust"],
+    "carrier_sim_swap_age_days": ["carrier_sim_swap_age_days", "sim_swap_age_days", "sim_swap_age", "sim_age", "carriersimswapagedays"],
+    "ip_country_match": ["ip_country_match", "ip_match", "country_match"],
+    "two_factor_auth_success": ["two_factor_auth_success", "2fa_success", "two_factor", "twofactorauthsuccess", "2fa"],
+    "is_fraud": ["is_fraud", "fraud", "class", "isfraud", "label", "target"],
+}
+
+
 @app.post("/api/upload-csv")
 async def upload_transactions_csv(file: UploadFile = File(...)):
-    """Accepts a user-provided CSV file of transactions and processes each through the cascade."""
+    """Accepts any user-provided CSV of transactions and processes each through the 3-tier cascade."""
     if STATE["engine"] is None:
         raise HTTPException(status_code=503, detail="System models not yet initialized.")
 
@@ -107,45 +184,124 @@ async def upload_transactions_csv(file: UploadFile = File(...)):
     import io
 
     contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    # Automatically handle Excel BOM (utf-8-sig)
     try:
-        decoded = contents.decode("utf-8")
+        decoded = contents.decode("utf-8-sig")
     except UnicodeDecodeError:
-        decoded = contents.decode("latin-1")
+        try:
+            decoded = contents.decode("utf-8")
+        except UnicodeDecodeError:
+            decoded = contents.decode("latin-1")
 
     reader = csv.DictReader(io.StringIO(decoded))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV has no valid header row.")
+
+    # Build header mapping using aliases
+    canonical_headers = {}
+    for col in reader.fieldnames:
+        if not col:
+            continue
+        clean_col = col.strip().lower().replace(" ", "_").replace("-", "")
+        matched = False
+        for canon, aliases in CSV_ALIAS_MAP.items():
+            clean_aliases = [a.replace("_", "").replace("-", "") for a in aliases]
+            if clean_col in clean_aliases:
+                canonical_headers[col] = canon
+                matched = True
+                break
+        if not matched:
+            canonical_headers[col] = clean_col
+
     results = []
     engine = STATE["engine"]
+    errors = []
+    tier_counts = {0: 0, 1: 0, 2: 0}
 
     for row_idx, row in enumerate(reader):
+        if row_idx >= 1500:  # Safety cap for responsive browser execution
+            break
+
+        # Remap row keys to canonical names
+        clean_row = {}
+        for k, v in row.items():
+            if k is not None:
+                canon_k = canonical_headers.get(k, k.strip().lower().replace(" ", "_"))
+                clean_row[canon_k] = v
+
         try:
+            amt = parse_smart_float(clean_row.get("amount"), default=None)
+            if amt is None or amt <= 0:
+                # If amount is missing or invalid, check if there's any float column
+                amt = 50.0  # Safe default if not found
+
+            dist_home = parse_smart_float(clean_row.get("distance_from_home"), default=None)
+            if dist_home is None:
+                # If Kaggle credit card features exist (V1..V28)
+                if "v1" in clean_row:
+                    dist_home = round(abs(parse_smart_float(clean_row.get("v1"), 0.0)) * 12.0 + 3.0, 1)
+                else:
+                    dist_home = 5.0
+
+            dist_last = parse_smart_float(clean_row.get("distance_from_last_tx"), default=max(0.5, round(dist_home * 0.3, 1)))
+            ratio_price = parse_smart_float(clean_row.get("ratio_to_median_price"), default=1.0)
+            merchant = parse_smart_int(clean_row.get("merchant_category"), default=1)
+            repeat = parse_smart_int(clean_row.get("repeat_retailer"), default=1)
+            chip = parse_smart_int(clean_row.get("used_chip"), default=1)
+            pin = parse_smart_int(clean_row.get("used_pin"), default=0)
+            online = parse_smart_int(clean_row.get("online_order"), default=0)
+            vel1 = parse_smart_int(clean_row.get("velocity_1h"), default=1)
+            vel24 = parse_smart_int(clean_row.get("velocity_24h"), default=vel1 + 2)
+
+            device_trust = parse_smart_opt_float(clean_row.get("device_trust_score"))
+            carrier_sim = parse_smart_opt_int(clean_row.get("carrier_sim_swap_age_days"))
+            ip_match = parse_smart_opt_int(clean_row.get("ip_country_match"))
+            two_factor = parse_smart_opt_int(clean_row.get("two_factor_auth_success"))
+            is_fraud = parse_smart_opt_int(clean_row.get("is_fraud"))
+
             tx = Transaction(
-                transaction_id=row.get("transaction_id", f"USER-TX-{1000 + row_idx}"),
-                amount=float(row.get("amount", 50.0)),
-                merchant_category=int(row.get("merchant_category", 1)),
-                distance_from_home=float(row.get("distance_from_home", 5.0)),
-                distance_from_last_tx=float(row.get("distance_from_last_tx", 1.0)),
-                ratio_to_median_price=float(row.get("ratio_to_median_price", 1.0)),
-                repeat_retailer=int(row.get("repeat_retailer", 1)),
-                used_chip=int(row.get("used_chip", 1)),
-                used_pin=int(row.get("used_pin", 0)),
-                online_order=int(row.get("online_order", 0)),
-                velocity_1h=int(row.get("velocity_1h", 0)),
-                velocity_24h=int(row.get("velocity_24h", 1)),
-                device_trust_score=float(row["device_trust_score"]) if "device_trust_score" in row and row["device_trust_score"] != "" else None,
-                carrier_sim_swap_age_days=int(row["carrier_sim_swap_age_days"]) if "carrier_sim_swap_age_days" in row and row["carrier_sim_swap_age_days"] != "" else None,
-                ip_country_match=int(row["ip_country_match"]) if "ip_country_match" in row and row["ip_country_match"] != "" else None,
-                two_factor_auth_success=int(row["two_factor_auth_success"]) if "two_factor_auth_success" in row and row["two_factor_auth_success"] != "" else None,
-                is_fraud=int(row["is_fraud"]) if "is_fraud" in row and row["is_fraud"] != "" else None,
+                transaction_id=str(clean_row.get("transaction_id") or f"CSV-TX-{1000 + row_idx}"),
+                amount=max(0.01, amt),
+                merchant_category=merchant,
+                distance_from_home=dist_home,
+                distance_from_last_tx=dist_last,
+                ratio_to_median_price=ratio_price,
+                repeat_retailer=repeat,
+                used_chip=chip,
+                used_pin=pin,
+                online_order=online,
+                velocity_1h=vel1,
+                velocity_24h=vel24,
+                device_trust_score=device_trust,
+                carrier_sim_swap_age_days=carrier_sim,
+                ip_country_match=ip_match,
+                two_factor_auth_success=two_factor,
+                is_fraud=is_fraud,
             )
+
             packet = engine.process_transaction(tx)
+            tier_counts[packet.escalation_tier] = tier_counts.get(packet.escalation_tier, 0) + 1
+
             if packet.escalation_tier == 2:
                 STATE["queue_manager"].enqueue(packet, tx)
+
             results.append(packet.model_dump())
         except Exception as e:
-            continue
+            errors.append(f"Row {row_idx+1}: {str(e)}")
+
+    if not results and errors:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to process CSV. Sample errors: {'; '.join(errors[:3])}. Detected headers: {list(reader.fieldnames)}"
+        )
 
     return {
+        "status": "SUCCESS",
         "processed_count": len(results),
+        "tier_breakdown": tier_counts,
         "results": results,
     }
 

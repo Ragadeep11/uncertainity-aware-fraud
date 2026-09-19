@@ -85,6 +85,34 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(resolve_res["status"], "RESOLVED")
         self.assertEqual(resolve_res["case"]["human_decision"], "DECLINE")
 
+    def test_upload_csv_endpoint(self):
+        import io
+        from fastapi import UploadFile
+        from safe_escalate.web.app import upload_transactions_csv
+
+        # Test 1: Standard sample CSV
+        with open("sample_transactions.csv", "rb") as f:
+            content = f.read()
+
+        file1 = UploadFile(filename="sample.csv", file=io.BytesIO(content))
+        res1 = asyncio.run(upload_transactions_csv(file1))
+        self.assertEqual(res1["status"], "SUCCESS")
+        self.assertEqual(res1["processed_count"], 5)
+
+        # Test 2: Tricky CSV with capitalized headers, string booleans, and float strings
+        tricky_csv = (
+            "Amount,Merchant,Distance,Used_Chip,Online,Class\n"
+            "25.50,1,2.0,True,False,0.0\n"
+            "4500.00,5,150.0,0.0,True,1.0\n"
+        ).encode("utf-8-sig")
+
+        file2 = UploadFile(filename="tricky.csv", file=io.BytesIO(tricky_csv))
+        res2 = asyncio.run(upload_transactions_csv(file2))
+        self.assertEqual(res2["status"], "SUCCESS")
+        self.assertEqual(res2["processed_count"], 2)
+        self.assertEqual(res2["results"][0]["final_action"], "APPROVE")
+        self.assertEqual(res2["results"][1]["escalation_tier"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

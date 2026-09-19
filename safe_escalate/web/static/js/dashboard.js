@@ -772,7 +772,7 @@ async function uploadCsvFile() {
 
   const btn = document.getElementById("btn-upload-csv");
   btn.disabled = true;
-  btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Processing...</span>`;
+  btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Processing CSV...</span>`;
 
   try {
     const res = await fetch("/api/upload-csv", {
@@ -780,11 +780,31 @@ async function uploadCsvFile() {
       body: formData,
     });
 
-    if (!res.ok) throw new Error("CSV upload failed");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(errData.detail || `Upload failed (Status ${res.status})`);
+    }
+
     const data = await res.json();
 
+    if (data.processed_count === 0) {
+      alert("No valid rows could be parsed from the CSV file. Please make sure the CSV has headers and an 'amount' column.");
+      return;
+    }
+
+    const t0 = data.tier_breakdown ? data.tier_breakdown[0] || 0 : 0;
+    const t1 = data.tier_breakdown ? data.tier_breakdown[1] || 0 : 0;
+    const t2 = data.tier_breakdown ? data.tier_breakdown[2] || 0 : 0;
+
     document.getElementById("csv-results-container").classList.remove("hidden");
-    document.getElementById("csv-summary-count").innerText = data.processed_count;
+    document.getElementById("csv-summary-count").innerHTML = `
+      <span class="text-emerald-400 font-bold font-mono">${data.processed_count}</span> transactions processed 
+      <span class="text-slate-400 text-[11px] font-normal">
+        (Tier 0 Autonomous: <b class="text-emerald-400">${t0}</b>, 
+         Tier 1 Step-Up: <b class="text-amber-400">${t1}</b>, 
+         Tier 2 Escalated: <b class="text-purple-400">${t2}</b>)
+      </span>
+    `;
 
     const tbody = document.getElementById("csv-table-body");
     tbody.innerHTML = "";
@@ -795,11 +815,11 @@ async function uploadCsvFile() {
       
       let badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-bold">${pkt.final_action}</span>`;
       if (pkt.final_action.startsWith("APPROVE")) {
-        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold">${pkt.final_action}</span>`;
+        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">${pkt.final_action}</span>`;
       } else if (pkt.final_action.startsWith("DECLINE")) {
-        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold">${pkt.final_action}</span>`;
+        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">${pkt.final_action}</span>`;
       } else {
-        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-bold">${pkt.final_action}</span>`;
+        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 font-bold">ESCALATE HITL</span>`;
       }
 
       row.innerHTML = `
