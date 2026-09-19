@@ -28,10 +28,21 @@ class UncertaintyEstimator:
     def fit(self, X_train: np.ndarray):
         """Fit scaler and k-NN reference space for epistemic OOD evaluation."""
         X_norm = self.scaler.fit_transform(X_train)
-        self.nn_model.fit(X_norm)
 
-        # Baseline distance statistics for calibration
-        distances, _ = self.nn_model.kneighbors(X_norm)
+        # For high-throughput scalability (e.g. 50k-284k rows in Kaggle),
+        # use an anchor reference set of up to 4,000 points for k-NN manifold distance.
+        if len(X_norm) > 4000:
+            rng = np.random.default_rng(42)
+            anchor_idx = rng.choice(len(X_norm), size=4000, replace=False)
+            X_anchor = X_norm[anchor_idx]
+        else:
+            X_anchor = X_norm
+
+        self.nn_model.fit(X_anchor)
+
+        # Baseline distance statistics for calibration (evaluated on up to 2,000 points)
+        eval_sample = X_anchor[:min(2000, len(X_anchor))]
+        distances, _ = self.nn_model.kneighbors(eval_sample)
         mean_knn_dists = np.mean(distances, axis=1)
         self.train_dist_95 = float(np.percentile(mean_knn_dists, 95))
         if self.train_dist_95 <= 1e-6:

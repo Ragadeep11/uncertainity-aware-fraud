@@ -39,11 +39,35 @@ class SafeEscalatePolicyEngine:
         )
         self.cost_evaluator = CostMatrixEvaluator(self.config.costs)
 
+    def extract_vector(self, tx: Transaction) -> Tuple[np.ndarray, list]:
+        """Extracts appropriate feature vector based on whether model was trained on Kaggle or synthetic data."""
+        expected_dim = getattr(self.base_classifier.scaler, "n_features_in_", 11)
+        if expected_dim in (29, 30) or (tx.pca_features is not None and len(tx.pca_features) >= 28):
+            if tx.pca_features:
+                vec = [float(tx.pca_features.get("Time", 0.0))]
+                for j in range(1, 29):
+                    vec.append(float(tx.pca_features.get(f"V{j}", 0.0)))
+                vec.append(float(tx.pca_features.get("Amount", tx.amount)))
+            else:
+                # Approximate V-vector mapping for standard transactions
+                v1 = (tx.distance_from_home - 3.0) / 12.0
+                v2 = (tx.distance_from_last_tx - 1.0) / 6.0
+                v3 = 1.0 if tx.repeat_retailer else -1.5
+                v4 = 0.5 if tx.used_chip else 2.5
+                v5 = 2.0 if tx.online_order else 0.0
+                v6 = float(tx.velocity_1h) * 0.5
+                v7 = float(tx.velocity_24h) * 0.3
+                vec = [0.0, v1, v2, v3, v4, v5, v6, v7] + [0.0] * 21 + [float(tx.amount)]
+            names = ["Time"] + [f"V{i}" for i in range(1, 29)] + ["Amount"]
+            return np.array(vec, dtype=float), names
+        else:
+            return TransactionDatasetGenerator.extract_base_vector(tx), TransactionDatasetGenerator.BASE_FEATURE_NAMES
+
     def process_transaction(self, tx: Transaction) -> DecisionPacket:
         """
         Executes the 3-Tier SafeEscalate decision cascade for a single transaction.
         """
-        x_base = TransactionDatasetGenerator.extract_base_vector(tx)
+        x_base, feature_names = self.extract_vector(tx)
 
         # Tier 1: Base Model Scoring
         p_initial = float(self.base_classifier.predict_p_fraud(x_base.reshape(1, -1))[0])
@@ -53,7 +77,7 @@ class SafeEscalatePolicyEngine:
         )
 
         attributions = self.uncertainty_estimator.compute_feature_attributions(
-            x_base, TransactionDatasetGenerator.BASE_FEATURE_NAMES
+            x_base, feature_names
         )
 
         # Ambiguity determination
@@ -103,7 +127,13 @@ class SafeEscalatePolicyEngine:
 
         if not bypass_to_human:
             evidence = self.evidence_collector.fetch_evidence(tx)
-            x_full = TransactionDatasetGenerator.extract_full_vector(tx, evidence)
+            sec = np.array([
+                evidence.device_trust_score,
+                evidence.carrier_sim_swap_age_days,
+                evidence.ip_country_match,
+                evidence.two_factor_auth_success,
+            ], dtype=float)
+            x_full = np.concatenate([x_base, sec])
             p_final = float(self.tier2_validator.predict_p_fraud(x_full.reshape(1, -1))[0])
 
             # Check if secondary evidence collapses the uncertainty

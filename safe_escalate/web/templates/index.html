@@ -56,10 +56,16 @@
         </button>
       </nav>
 
-      <!-- System Health Indicator -->
-      <div class="hidden md:flex items-center space-x-2 text-xs">
-        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-slate-300 font-mono">Conformal Coverage: 95% Guaranteed</span>
+      <!-- System Health & Dataset Indicator -->
+      <div class="hidden md:flex items-center space-x-3 text-xs">
+        <span class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-mono flex items-center space-x-1.5" id="dataset-badge">
+          <i data-lucide="database" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span id="dataset-name-text">Dataset: Kaggle CreditCard (ULB)</span>
+        </span>
+        <div class="flex items-center space-x-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-slate-300 font-mono">95% Coverage</span>
+        </div>
       </div>
     </div>
   </header>
@@ -799,6 +805,6 @@
   </footer>
 
   <!-- Application Logic -->
-  <script src="/static/js/dashboard.js?v=2.2"></script>
+  <script src="/static/js/dashboard.js?v=2.3"></script>
 </body>
 </html>

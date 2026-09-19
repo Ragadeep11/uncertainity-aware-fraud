@@ -25,31 +25,57 @@ class BenchmarkSuite:
     Executes standardized comparative evaluations across competing fraud decision policies.
     """
 
-    def __init__(self, config: AppConfig = None):
+    def __init__(self, config: AppConfig = None, dataset_type: str = "kaggle"):
         self.config = config or AppConfig()
+        self.dataset_type = dataset_type
         self.generator = TransactionDatasetGenerator(
             random_seed=self.config.random_seed, fraud_ratio=0.07
         )
         self.cost_evaluator = CostMatrixEvaluator(self.config.costs)
 
     def prepare_experiment(
-        self, n_samples: int = 12000
+        self, n_samples: int = 50000, dataset_type: Optional[str] = None
     ) -> Tuple[SafeEscalatePolicyEngine, List[Transaction], Dict[str, Any]]:
         """
-        Generates data, fits models, calibrates conformal bounds, and returns policy engine & test set.
+        Generates data (Kaggle or Synthetic), fits models, calibrates conformal bounds, and returns policy engine & test set.
         """
-        X_base, y, transactions = self.generator.generate_dataset(n_samples=n_samples)
+        ds_type = dataset_type or self.dataset_type
 
-        # 3-way split: Train (60%), Calibration (20%), Test (20%)
-        n_train = int(n_samples * 0.60)
-        n_cal = int(n_samples * 0.20)
+        if ds_type == "kaggle":
+            from safe_escalate.data.kaggle_loader import KaggleDatasetLoader
+            loader = KaggleDatasetLoader(random_seed=self.config.random_seed)
+            splits = loader.generate_splits(max_samples=n_samples)
 
-        X_train_base, y_train = X_base[:n_train], y[:n_train]
-        X_cal_base, y_cal = X_base[n_train : n_train + n_cal], y[n_train : n_train + n_cal]
-        X_test_base, y_test = X_base[n_train + n_cal :], y[n_train + n_cal :]
+            X_train_base = splits["X_train"]
+            y_train = splits["y_train"]
+            X_cal_base = splits["X_cal"]
+            y_cal = splits["y_cal"]
+            X_train_full = splits["X_train_full"]
+            test_txs = splits["test_transactions"]
+        else:
+            X_base, y, transactions = self.generator.generate_dataset(n_samples=n_samples)
 
-        train_txs = transactions[:n_train]
-        test_txs = transactions[n_train + n_cal :]
+            # 3-way split: Train (60%), Calibration (20%), Test (20%)
+            n_train = int(n_samples * 0.60)
+            n_cal = int(n_samples * 0.20)
+
+            X_train_base, y_train = X_base[:n_train], y[:n_train]
+            X_cal_base, y_cal = X_base[n_train : n_train + n_cal], y[n_train : n_train + n_cal]
+
+            train_txs = transactions[:n_train]
+            test_txs = transactions[n_train + n_cal :]
+
+            collector_mock = [
+                np.array([
+                    tx.device_trust_score,
+                    tx.carrier_sim_swap_age_days,
+                    tx.ip_country_match,
+                    tx.two_factor_auth_success,
+                ], dtype=float)
+                for tx in train_txs
+            ]
+            X_train_sec = np.vstack(collector_mock)
+            X_train_full = np.hstack([X_train_base, X_train_sec])
 
         # 1. Fit Base Classifier
         base_clf = BaseFraudClassifier(random_state=self.config.random_seed)
@@ -65,19 +91,7 @@ class BenchmarkSuite:
         uncertainty_est = UncertaintyEstimator(n_neighbors=15)
         uncertainty_est.fit(X_train_base)
 
-        # 4. Prepare Tier-2 full feature dataset for secondary validator
-        collector_mock = [
-            np.array([
-                tx.device_trust_score,
-                tx.carrier_sim_swap_age_days,
-                tx.ip_country_match,
-                tx.two_factor_auth_success,
-            ], dtype=float)
-            for tx in train_txs
-        ]
-        X_train_sec = np.vstack(collector_mock)
-        X_train_full = np.hstack([X_train_base, X_train_sec])
-
+        # 4. Fit Tier 2 Validator on full feature set
         tier2_val = Tier2EvidenceValidator(random_state=self.config.random_seed)
         tier2_val.fit(X_train_full, y_train)
 
@@ -94,15 +108,16 @@ class BenchmarkSuite:
 
         return engine, test_txs, cal_metrics
 
-    def run_benchmark(self, n_samples: int = 12000) -> Dict[str, Any]:
+    def run_benchmark(self, n_samples: int = 50000, dataset_type: Optional[str] = None) -> Dict[str, Any]:
         """
         Executes full comparative simulation.
         """
-        engine, test_txs, cal_metrics = self.prepare_experiment(n_samples=n_samples)
+        ds_type = dataset_type or self.dataset_type
+        engine, test_txs, cal_metrics = self.prepare_experiment(n_samples=n_samples, dataset_type=ds_type)
         base_clf = engine.base_classifier
 
-        # Extract test base features
-        X_test = np.vstack([self.generator.extract_base_vector(tx) for tx in test_txs])
+        # Extract test base features dynamically using engine's extract_vector
+        X_test = np.vstack([engine.extract_vector(tx)[0] for tx in test_txs])
         p_fraud_test = base_clf.predict_p_fraud(X_test)
         y_test = np.array([tx.is_fraud for tx in test_txs])
         amounts = np.array([tx.amount for tx in test_txs])

@@ -28,6 +28,10 @@ wheels/
 *.pkl
 *.parquet
 *.csv.gz
+*.zip
+safe_escalate/data/creditcard.csv
+safe_escalate/data/creditcard.csv.zip
+__MACOSX/
 
 # IDE
 .idea/

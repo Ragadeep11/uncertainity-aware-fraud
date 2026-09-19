@@ -12,16 +12,16 @@ if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
 
-def run_benchmark_cli(samples: int = 10000):
+def run_benchmark_cli(samples: int = 50000, dataset: str = "kaggle"):
     from safe_escalate.eval.benchmark import BenchmarkSuite
 
     print("=" * 80)
     print("SafeEscalate Empirical Research Benchmark")
-    print(f"Generating and evaluating dataset ({samples} total samples)...")
+    print(f"Dataset: {dataset.upper()} | Samples: {samples:,}")
     print("=" * 80)
 
-    suite = BenchmarkSuite()
-    results = suite.run_benchmark(n_samples=samples)
+    suite = BenchmarkSuite(dataset_type=dataset)
+    results = suite.run_benchmark(n_samples=samples, dataset_type=dataset)
 
     print("\n--- Conformal Calibration Metrics ---")
     cal = results["conformal_calibration"]
@@ -128,10 +128,11 @@ def run_interactive_cli():
             break
 
 
-def run_server_cli(host: str = "127.0.0.1", port: int = 8000, reload: bool = False):
+def run_server_cli(host: str = "127.0.0.1", port: int = 8000, reload: bool = False, dataset: str = "kaggle"):
     import uvicorn
 
-    print(f"Starting SafeEscalate Server at http://{host}:{port}")
+    os.environ["SAFE_ESCALATE_DATASET"] = dataset
+    print(f"Starting SafeEscalate Server at http://{host}:{port} (Dataset: {dataset.upper()})")
     uvicorn.run("safe_escalate.web.app:app", host=host, port=port, reload=reload)
 
 
@@ -147,12 +148,18 @@ def main():
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host address for web server")
     parser.add_argument("--port", type=int, default=8000, help="Port for web server")
-    parser.add_argument("--samples", type=int, default=8000, help="Sample size for benchmark")
+    parser.add_argument("--samples", type=int, default=50000, help="Sample size for benchmark or training")
+    parser.add_argument(
+        "--dataset",
+        choices=["kaggle", "synthetic"],
+        default="kaggle",
+        help="Dataset to train models on: 'kaggle' (real European cardholders, default) or 'synthetic'.",
+    )
 
     args = parser.parse_args()
 
     if args.action == "benchmark":
-        run_benchmark_cli(samples=args.samples)
+        run_benchmark_cli(samples=args.samples, dataset=args.dataset)
     elif args.action == "test":
         import unittest
         loader = unittest.TestLoader()
@@ -163,7 +170,7 @@ def main():
     elif args.action == "interactive":
         run_interactive_cli()
     else:
-        run_server_cli(host=args.host, port=args.port)
+        run_server_cli(host=args.host, port=args.port, dataset=args.dataset)
 
 
 if __name__ == "__main__":

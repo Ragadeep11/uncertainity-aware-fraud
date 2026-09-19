@@ -3,13 +3,16 @@ Data schemas for transactions, evidence payloads, and decision outputs.
 """
 
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class Transaction(BaseModel):
     """
     Financial transaction feature representation.
+    Supports both tabular features and Kaggle PCA features (V1..V28, Time).
     """
+    model_config = ConfigDict(extra="allow")
+
     transaction_id: str
     amount: float = Field(..., gt=0)
     merchant_category: int = Field(default=1, ge=0, le=10)
@@ -22,6 +25,9 @@ class Transaction(BaseModel):
     online_order: int = Field(default=0, ge=0, le=1)
     velocity_1h: int = Field(default=1, ge=0)
     velocity_24h: int = Field(default=2, ge=0)
+
+    # Kaggle PCA feature dictionary (V1..V28, Time)
+    pca_features: Optional[Dict[str, float]] = None
 
     # Tier-2 Dynamic Evidence Features (retrieved on-demand)
     device_trust_score: Optional[float] = None

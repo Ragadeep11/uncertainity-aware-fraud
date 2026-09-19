@@ -42,20 +42,37 @@ STATE: Dict[str, Any] = {
 }
 
 
-def initialize_system(n_samples: int = 10000):
-    """Pre-trains base models, conformal predictor, and validators."""
-    print("Training SafeEscalate core models and conformal calibration set...")
-    suite = BenchmarkSuite(config=STATE["config"])
-    engine, test_txs, cal_metrics = suite.prepare_experiment(n_samples=n_samples)
+def initialize_system(n_samples: int = 50000, dataset_type: Optional[str] = None):
+    """Pre-trains base models, conformal predictor, and validators on Kaggle or Synthetic data."""
+    if dataset_type is None:
+        dataset_type = os.environ.get("SAFE_ESCALATE_DATASET", "kaggle")
+
+    print(f"Training SafeEscalate core models on dataset: '{dataset_type}' (samples: {n_samples})...")
+    suite = BenchmarkSuite(config=STATE["config"], dataset_type=dataset_type)
+    try:
+        engine, test_txs, cal_metrics = suite.prepare_experiment(
+            n_samples=n_samples, dataset_type=dataset_type
+        )
+        STATE["dataset_type"] = dataset_type
+        STATE["dataset_name"] = "Kaggle CreditCard Fraud (ULB)" if dataset_type == "kaggle" else "Synthetic Multi-Tier"
+    except Exception as e:
+        print(f"[Warning] Failed to initialize '{dataset_type}': {e}. Falling back to 'synthetic' generator.")
+        engine, test_txs, cal_metrics = suite.prepare_experiment(
+            n_samples=10000, dataset_type="synthetic"
+        )
+        STATE["dataset_type"] = "synthetic"
+        STATE["dataset_name"] = "Synthetic Multi-Tier (Fallback)"
+
     STATE["engine"] = engine
     STATE["test_txs"] = test_txs
     STATE["conformal_metrics"] = cal_metrics
-    print(f"System initialized with {len(test_txs)} test transactions ready for evaluation.")
+    print(f"System successfully initialized with {len(test_txs)} test transactions ready for evaluation.")
 
 
 @app.on_event("startup")
 async def startup_event():
-    initialize_system(n_samples=10000)
+    dataset = os.environ.get("SAFE_ESCALATE_DATASET", "kaggle")
+    initialize_system(n_samples=50000, dataset_type=dataset)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -74,6 +91,9 @@ async def get_status():
     engine = STATE["engine"]
     return {
         "status": "ONLINE",
+        "dataset_name": STATE.get("dataset_name", "Kaggle CreditCard Fraud (ULB)"),
+        "dataset_type": STATE.get("dataset_type", "kaggle"),
+        "test_stream_pool": len(STATE.get("test_txs", [])),
         "conformal_q_hat": engine.conformal_predictor.q_hat,
         "conformal_alpha": engine.conformal_predictor.alpha,
         "conformal_target_coverage": 1.0 - engine.conformal_predictor.alpha,

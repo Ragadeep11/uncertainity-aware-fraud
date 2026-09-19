@@ -14,9 +14,24 @@ document.addEventListener("DOMContentLoaded", () => {
   if (window.lucide) {
     lucide.createIcons();
   }
+  checkSystemStatus();
   refreshQueue();
   loadBenchmarkData();
 });
+
+async function checkSystemStatus() {
+  try {
+    const res = await fetch("/api/status");
+    if (!res.ok) return;
+    const data = await res.json();
+    const datasetElem = document.getElementById("dataset-name-text");
+    if (datasetElem && data.dataset_name) {
+      datasetElem.innerText = `Dataset: ${data.dataset_name}`;
+    }
+  } catch (err) {
+    console.debug("Status check error:", err);
+  }
+}
 
 // Tab Switcher
 function switchTab(tabId) {
