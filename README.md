@@ -166,8 +166,8 @@ uncertainty-aware-fraud-escalation/
 ### 7.1 Installation
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/uncertainty-aware-fraud-escalation.git
-cd uncertainty-aware-fraud-escalation
+git clone https://github.com/Ragadeep11/uncertainity-aware-fraud.git
+cd uncertainity-aware-fraud
 
 # Install dependencies
 pip install -r requirements.txt
@@ -194,24 +194,17 @@ Open your browser and navigate to: **`http://localhost:8000`**
 
 ---
 
-## 📤 8. How to Push to Your GitHub Account
+## 📤 8. GitHub Repository
 
-To publish this project on your GitHub profile:
+This repository is published and maintained at:  
+👉 **[https://github.com/Ragadeep11/uncertainity-aware-fraud](https://github.com/Ragadeep11/uncertainity-aware-fraud)**
 
-1. Create a new empty repository on [GitHub](https://github.com/new) named:  
-   `uncertainty-aware-fraud-escalation` (do not initialize with README or license).
-
-2. Open PowerShell in this project directory and run:
-   ```bash
-   # Add your GitHub repository as remote
-   git remote add origin https://github.com/<your-username>/uncertainty-aware-fraud-escalation.git
-
-   # Set branch to main and push
-   git branch -M main
-   git push -u origin main
-   ```
-
-*(Alternatively, if you use the GitHub CLI, run `gh auth login` and then `gh repo create uncertainty-aware-fraud-escalation --public --source=. --push`)*
+To push future modifications:
+```bash
+git add .
+git commit -m "update: your message"
+git push origin main
+```
 
 ---
 
