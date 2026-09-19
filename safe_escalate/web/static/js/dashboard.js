@@ -48,6 +48,9 @@ function switchTab(tabId) {
     refreshQueue();
   } else if (tabId === "benchmarks") {
     loadBenchmarkData();
+  } else if (tabId === "blockchain") {
+    fetchBlockchainLedger();
+    verifyBlockchainIntegrity(false);
   }
 
   if (window.lucide) {
@@ -248,7 +251,46 @@ async function refreshQueue() {
         )
         .join("");
 
-      card.innerHTML = `
+        let trajectoryHtml = "";
+        if (dossier.investigation_trajectory && dossier.investigation_trajectory.length > 0) {
+          const stepsHtml = dossier.investigation_trajectory.map((s) => `
+            <div class="p-2 rounded bg-slate-900 border border-slate-800 text-[11px] space-y-0.5">
+              <div class="flex items-center justify-between font-mono">
+                <span class="text-cyan-300 font-bold">Step ${s.step_number}: ${s.evidence_name}</span>
+                <span class="text-emerald-400 font-bold">$${s.cost_usd.toFixed(2)} (${s.latency_ms}ms)</span>
+              </div>
+              <div class="text-slate-300 text-[10px]">${s.summary}</div>
+              <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-0.5">
+                <span>Risk: <b>${s.p_fraud_transition}</b></span>
+                <span>Uncertainty: <b>${s.uncertainty_transition}</b></span>
+              </div>
+            </div>
+          `).join("");
+
+          trajectoryHtml = `
+            <div>
+              <div class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-1.5 flex items-center space-x-1">
+                <i data-lucide="git-commit" class="w-3.5 h-3.5"></i>
+                <span>Automated Investigation Trajectory</span>
+              </div>
+              <div class="space-y-1.5 bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+                ${stepsHtml}
+              </div>
+            </div>
+          `;
+        }
+
+        let bcProofHtml = "";
+        if (dossier.blockchain_audit && dossier.blockchain_audit.block_hash) {
+          bcProofHtml = `
+            <div class="text-[10px] font-mono text-slate-400 bg-slate-950 p-2 rounded-lg border border-indigo-500/20 flex items-center justify-between">
+              <span class="text-indigo-400">Blockchain Block #${dossier.blockchain_audit.block_index}</span>
+              <span class="truncate max-w-[200px]" title="${dossier.blockchain_audit.block_hash}">${dossier.blockchain_audit.block_hash.substring(0, 22)}...</span>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
           <div>
             <div class="flex items-center space-x-2">
@@ -270,6 +312,8 @@ async function refreshQueue() {
           <div>Epistemic: <span class="text-slate-300">${dossier.uncertainty_profile.epistemic.toFixed(2)}</span></div>
         </div>
 
+        ${trajectoryHtml}
+
         <div>
           <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Anomaly Feature Drivers</div>
           <div class="space-y-2 bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
@@ -287,6 +331,8 @@ async function refreshQueue() {
         <div class="text-xs text-slate-400 italic bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/40">
           "${dossier.rationale}"
         </div>
+
+        ${bcProofHtml}
 
         <div class="pt-2 flex items-center space-x-3">
           <button onclick="resolveCase('${dossier.transaction_id}', 'APPROVE')" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/20">
@@ -528,9 +574,51 @@ function toggleAdvancedTier2() {
   }
 }
 
+let currentCanonicalMode = null;
+let activeCanonicalTx = null;
+
+async function loadCanonicalCase(caseKey) {
+  try {
+    const res = await fetch("/api/scenarios/canonical");
+    if (!res.ok) throw new Error("Failed to fetch canonical scenarios");
+    const scenarios = await res.json();
+    const sc = scenarios[caseKey];
+    if (!sc) return;
+
+    currentCanonicalMode = sc.canonical_mode || null;
+    const tx = sc.transaction;
+    activeCanonicalTx = tx;
+
+    document.getElementById("manual-tx-id").value = tx.transaction_id;
+    document.getElementById("manual-amount").value = tx.amount;
+    document.getElementById("manual-merchant").value = tx.merchant_category;
+    document.getElementById("manual-dist-home").value = tx.distance_from_home;
+    document.getElementById("manual-dist-last").value = tx.distance_from_last_tx;
+    document.getElementById("manual-ratio-median").value = tx.ratio_to_median_price;
+    document.getElementById("manual-repeat-retailer").checked = tx.repeat_retailer === 1;
+    document.getElementById("manual-used-chip").checked = tx.used_chip === 1;
+    document.getElementById("manual-used-pin").checked = tx.used_pin === 1;
+    document.getElementById("manual-online-order").checked = tx.online_order === 1;
+    document.getElementById("manual-vel-1h").value = tx.velocity_1h;
+    document.getElementById("manual-vel-24h").value = tx.velocity_24h;
+
+    // Clear overrides
+    document.getElementById("manual-override-2fa").value = "";
+    document.getElementById("manual-override-device").value = "";
+    document.getElementById("manual-override-sim").value = "";
+
+    // Trigger evaluation automatically
+    submitManualTransaction(null);
+  } catch (err) {
+    console.error("Error loading canonical case:", err);
+  }
+}
+
 function loadScenario(type) {
   const randomSuffix = Math.floor(100 + Math.random() * 900);
   document.getElementById("manual-tx-id").value = `SCENARIO-${type.toUpperCase()}-${randomSuffix}`;
+  currentCanonicalMode = null;
+  activeCanonicalTx = null;
 
   // Clear overrides
   document.getElementById("manual-override-2fa").value = "";
@@ -561,7 +649,6 @@ function loadScenario(type) {
     document.getElementById("manual-online-order").checked = true;
     document.getElementById("manual-vel-1h").value = "2";
     document.getElementById("manual-vel-24h").value = "3";
-    // Simulate user will pass 2FA
     document.getElementById("manual-override-2fa").value = "1";
   } else if (type === "luxury") {
     document.getElementById("manual-amount").value = "4850.00";
@@ -587,18 +674,18 @@ function loadScenario(type) {
     document.getElementById("manual-online-order").checked = true;
     document.getElementById("manual-vel-1h").value = "6";
     document.getElementById("manual-vel-24h").value = "14";
-    // Fraudster fails 2FA
     document.getElementById("manual-override-2fa").value = "0";
     document.getElementById("manual-override-device").value = "0.12";
     document.getElementById("manual-override-sim").value = "3";
   }
 
-  // Auto-submit the scenario
   submitManualTransaction(null);
 }
 
 function resetManualForm() {
   document.getElementById("form-manual-tx").reset();
+  currentCanonicalMode = null;
+  activeCanonicalTx = null;
   document.getElementById("manual-placeholder").classList.remove("hidden");
   document.getElementById("manual-active-result").classList.add("hidden");
   document.getElementById("manual-result-badge").innerText = "Awaiting Evaluation";
@@ -653,7 +740,24 @@ async function submitManualTransaction(e) {
       two_factor_auth_success: override2fa,
     };
 
-    const res = await fetch("/api/predict", {
+    // Merge active canonical metadata if present (e.g. ₹85,000 Hyderabad context)
+    if (activeCanonicalTx) {
+      Object.assign(txPayload, {
+        customer_id: activeCanonicalTx.customer_id,
+        customer_home_state: activeCanonicalTx.customer_home_state,
+        location_city: activeCanonicalTx.location_city,
+        time_of_day: activeCanonicalTx.time_of_day,
+        normal_avg_amount: activeCanonicalTx.normal_avg_amount,
+        normal_device: activeCanonicalTx.normal_device,
+        device_fingerprint: activeCanonicalTx.device_fingerprint,
+        merchant_name: activeCanonicalTx.merchant_name,
+        is_fraud: activeCanonicalTx.is_fraud,
+      });
+    }
+
+    const url = currentCanonicalMode ? `/api/predict?canonical_mode=${encodeURIComponent(currentCanonicalMode)}` : "/api/predict";
+
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(txPayload),
@@ -664,7 +768,6 @@ async function submitManualTransaction(e) {
 
     renderManualResult(packet);
 
-    // If escalated to HITL queue, refresh queue
     if (packet.escalation_tier === 2) {
       refreshQueue();
     }
@@ -682,7 +785,8 @@ function renderManualResult(packet) {
 
   // Badge in header
   const badge = document.getElementById("manual-result-badge");
-  badge.innerText = `Tier ${packet.escalation_tier} Evaluated`;
+  const caseLabel = packet.canonical_case_id ? ` [${packet.canonical_case_id.replace(/_/g, ' ')}]` : '';
+  badge.innerText = `Tier ${packet.escalation_tier} Evaluated${caseLabel}`;
   badge.className = "px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30";
 
   // Action Banner
@@ -714,9 +818,54 @@ function renderManualResult(packet) {
 
   document.getElementById("manual-uq-scores").innerText = `${packet.aleatoric_uncertainty.toFixed(2)} / ${packet.epistemic_uncertainty.toFixed(2)}`;
 
-  // Tier 1 dynamic evidence
+  // Sequential Evidence Trajectory Flow
+  const trajContainer = document.getElementById("manual-trajectory-container");
+  const trajSteps = document.getElementById("manual-trajectory-steps");
+  const trajCost = document.getElementById("manual-trajectory-cost");
+
+  if (packet.investigation_trajectory && packet.investigation_trajectory.length > 0) {
+    trajContainer.classList.remove("hidden");
+    let totalCost = 0;
+    trajSteps.innerHTML = "";
+
+    packet.investigation_trajectory.forEach((step) => {
+      totalCost += (step.cost || 0);
+      const stepDiv = document.createElement("div");
+      stepDiv.className = "p-2.5 rounded-lg bg-slate-900 border border-slate-800 space-y-1";
+      stepDiv.innerHTML = `
+        <div class="flex items-center justify-between font-mono">
+          <span class="text-white font-bold flex items-center space-x-1.5">
+            <span class="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-bold">${step.step_number}</span>
+            <span>${step.evidence_name}</span>
+          </span>
+          <span class="text-emerald-400 font-bold">$${step.cost.toFixed(2)} (${step.latency_ms}ms)</span>
+        </div>
+        <div class="text-[10px] text-slate-300">${step.summary}</div>
+        <div class="flex items-center justify-between text-[10px] font-mono pt-0.5 border-t border-slate-800/60 text-slate-400">
+          <span>Risk: <b class="text-cyan-300">${(step.p_fraud_before * 100).toFixed(1)}% &rarr; ${(step.p_fraud_after * 100).toFixed(1)}%</b></span>
+          <span>Uncertainty: <b class="text-amber-300">${step.uncertainty_before.toFixed(2)} &rarr; ${step.uncertainty_after.toFixed(2)}</b> (ΔU: -${step.uncertainty_reduction.toFixed(2)})</span>
+        </div>
+      `;
+      trajSteps.appendChild(stepDiv);
+    });
+    trajCost.innerText = `Total Cost: $${totalCost.toFixed(2)}`;
+  } else {
+    trajContainer.classList.add("hidden");
+  }
+
+  // Cryptographic Blockchain Proof
+  const bcCard = document.getElementById("manual-blockchain-card");
+  if (packet.blockchain_block_hash) {
+    bcCard.classList.remove("hidden");
+    document.getElementById("manual-block-idx").innerText = packet.blockchain_index !== undefined ? packet.blockchain_index : "#";
+    document.getElementById("manual-block-hash").innerText = packet.blockchain_block_hash;
+  } else {
+    bcCard.classList.add("hidden");
+  }
+
+  // Tier 1 dynamic legacy evidence (if present)
   const tier1Box = document.getElementById("manual-tier1-details");
-  if (packet.evidence_collected) {
+  if (packet.evidence_collected && packet.evidence_collected.device_trust_score !== undefined) {
     tier1Box.classList.remove("hidden");
     const s2fa = packet.evidence_collected.two_factor_auth_success === 1 ? "Passed (SMS 2FA)" : "Failed / Timeout";
     const el2fa = document.getElementById("manual-ev-2fa");
@@ -965,6 +1114,167 @@ async function processCsvFileObject(file) {
       btn.innerHTML = `<i data-lucide="upload" class="w-4 h-4"></i><span>Process CSV Batch</span>`;
     }
     if (window.lucide) lucide.createIcons();
+  }
+}
+
+// -------------------------------------------------------------
+// TAB 6: BLOCKCHAIN AUDIT LEDGER
+// -------------------------------------------------------------
+
+let lastTamperedRecord = null;
+
+async function fetchBlockchainLedger() {
+  try {
+    const res = await fetch("/api/audit/ledger?limit=30");
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const totalEl = document.getElementById("bc-total-blocks");
+    if (totalEl) totalEl.innerText = data.total_blocks || 0;
+
+    const headEl = document.getElementById("bc-head-hash");
+    if (headEl) headEl.innerText = data.head_hash ? data.head_hash.substring(0, 24) + "..." : "--";
+
+    const tbody = document.getElementById("bc-table-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (!data.blocks || data.blocks.length === 0) {
+      tbody.innerHTML = `<tr class="text-slate-500 text-center"><td colspan="7" class="py-6">No blocks recorded yet.</td></tr>`;
+      return;
+    }
+
+    data.blocks.forEach((b) => {
+      const row = document.createElement("tr");
+      row.className = "hover:bg-slate-800/40 transition";
+
+      let decisionBadge = `<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-bold">${b.final_action}</span>`;
+      if (b.final_action.includes("APPROVE")) {
+        decisionBadge = `<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">${b.final_action}</span>`;
+      } else if (b.final_action.includes("DECLINE")) {
+        decisionBadge = `<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">${b.final_action}</span>`;
+      } else if (b.human_resolved) {
+        decisionBadge = `<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">RESOLVED: ${b.human_decision}</span>`;
+      } else {
+        decisionBadge = `<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 font-mono">HITL QUEUED</span>`;
+      }
+
+      let evSummary = "None (Tier 0)";
+      if (b.evidence_chain && b.evidence_chain.length > 0) {
+        evSummary = b.evidence_chain.map(s => `${s.evidence_type} ($${s.cost})`).join(" &rarr; ");
+      }
+
+      const shortHash = b.block_hash ? b.block_hash.substring(0, 16) + "..." : "--";
+      const ts = b.timestamp ? b.timestamp.replace("T", " ").substring(0, 19) : "--";
+
+      row.innerHTML = `
+        <td class="px-4 py-2.5 font-bold text-cyan-400">#${b.index}</td>
+        <td class="px-4 py-2.5 text-slate-400 text-[11px]">${ts}</td>
+        <td class="px-4 py-2.5 font-bold text-white">${b.transaction_id} <span class="text-slate-400 font-normal">($${b.amount.toFixed(2)})</span></td>
+        <td class="px-4 py-2.5 text-[11px] text-slate-300">${(b.initial_p_fraud * 100).toFixed(1)}% &rarr; <b class="text-cyan-300">${(b.final_p_fraud * 100).toFixed(1)}%</b></td>
+        <td class="px-4 py-2.5 text-[11px] text-slate-400 max-w-xs truncate">${evSummary}</td>
+        <td class="px-4 py-2.5">${decisionBadge}</td>
+        <td class="px-4 py-2.5 text-slate-400 font-mono text-[10px]" title="${b.block_hash}">${shortHash}</td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    console.error("Error fetching blockchain ledger:", err);
+  }
+}
+
+async function verifyBlockchainIntegrity(showAlert = true) {
+  try {
+    const res = await fetch("/api/audit/verify");
+    if (!res.ok) throw new Error("Integrity check failed");
+    const report = await res.json();
+
+    const statusEl = document.getElementById("bc-integrity-status");
+    const detailEl = document.getElementById("bc-integrity-detail");
+    const tamperBanner = document.getElementById("bc-tamper-banner");
+    const restoreBtn = document.getElementById("btn-bc-restore");
+
+    if (report.valid) {
+      if (statusEl) statusEl.innerHTML = `<span>VALID</span><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>`;
+      if (detailEl) detailEl.innerText = `100% SHA-256 hash verified across ${report.total_blocks} blocks`;
+      if (tamperBanner) tamperBanner.classList.add("hidden");
+      if (restoreBtn) restoreBtn.classList.add("hidden");
+      if (showAlert) {
+        alert(`Blockchain Integrity Verified: All ${report.total_blocks} investigation blocks and cryptographic parent hashes are 100% authentic!`);
+      }
+    } else {
+      if (statusEl) statusEl.innerHTML = `<span class="text-rose-400">TAMPERED</span><span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>`;
+      if (detailEl) detailEl.innerText = `Integrity violation at block #${report.tampered_block_index}`;
+      if (tamperBanner) {
+        tamperBanner.classList.remove("hidden");
+        const msg = document.getElementById("bc-tamper-message");
+        if (msg) msg.innerText = report.error || "Cryptographic integrity violation detected.";
+      }
+      if (restoreBtn) restoreBtn.classList.remove("hidden");
+    }
+  } catch (err) {
+    console.error("Error verifying blockchain:", err);
+  }
+}
+
+async function simulateTamperDemo() {
+  try {
+    const ledgerRes = await fetch("/api/audit/ledger?limit=10");
+    if (!ledgerRes.ok) return;
+    const ledgerData = await ledgerRes.json();
+
+    if (!ledgerData.blocks || ledgerData.blocks.length <= 1) {
+      alert("Please evaluate at least one transaction first so the blockchain ledger contains an investigation block to tamper with!");
+      return;
+    }
+
+    // Pick the most recent non-genesis block
+    const targetBlock = ledgerData.blocks[0];
+    const targetIdx = targetBlock.index > 0 ? targetBlock.index : 1;
+
+    const res = await fetch("/api/audit/simulate-tamper", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        block_index: targetIdx,
+        fake_action: "FORGED_APPROVE_ATTACK",
+      }),
+    });
+
+    if (!res.ok) throw new Error("Simulation failed");
+    const result = await res.json();
+
+    lastTamperedRecord = {
+      block_index: targetIdx,
+      original_action: result.original_action,
+    };
+
+    fetchBlockchainLedger();
+    verifyBlockchainIntegrity(false);
+
+    alert(`Tampering Attack Simulated on Block #${targetIdx}!\nFalsified Action: 'FORGED_APPROVE_ATTACK'.\nNotice how the SHA-256 cryptographic chain immediately flags a broken integrity violation!`);
+  } catch (err) {
+    console.error("Error simulating tamper:", err);
+  }
+}
+
+async function restoreBlockchainLedger() {
+  if (!lastTamperedRecord) return;
+  try {
+    const res = await fetch("/api/audit/restore", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lastTamperedRecord),
+    });
+    if (!res.ok) throw new Error("Restoration failed");
+    lastTamperedRecord = null;
+    fetchBlockchainLedger();
+    verifyBlockchainIntegrity(false);
+    alert("Blockchain Ledger Restored to original authentic state! Cryptographic integrity is 100% restored.");
+  } catch (err) {
+    console.error("Error restoring blockchain:", err);
   }
 }
 

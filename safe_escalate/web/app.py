@@ -103,12 +103,12 @@ async def get_status():
 
 
 @app.post("/api/predict", response_model=DecisionPacket)
-async def process_transaction(tx: Transaction):
+async def process_transaction(tx: Transaction, canonical_mode: Optional[str] = None):
     if STATE["engine"] is None:
         raise HTTPException(status_code=503, detail="System models not yet initialized.")
 
     engine = STATE["engine"]
-    packet = engine.process_transaction(tx)
+    packet = engine.process_transaction(tx, canonical_mode=canonical_mode)
 
     # If escalated to human review, enqueue in HITL manager
     if packet.escalation_tier == 2:
@@ -400,7 +400,220 @@ async def resolve_queue_item(payload: ResolvePayload):
     )
     if res is None:
         raise HTTPException(status_code=404, detail="Transaction ID not found in pending queue.")
+
+    # Seal human decision into Blockchain Audit Ledger
+    if STATE["engine"] and getattr(STATE["engine"], "blockchain_ledger", None):
+        STATE["engine"].blockchain_ledger.record_human_resolution(
+            transaction_id=payload.transaction_id,
+            decision=payload.decision,
+            analyst_id=payload.analyst_id,
+            notes=payload.notes,
+        )
+
     return {"status": "RESOLVED", "case": res}
+
+
+@app.get("/api/scenarios/canonical")
+async def get_canonical_scenarios():
+    """Returns definitions and pre-configured payloads for the 5 Canonical Research Cases."""
+    return {
+        "hyderabad_outlier": {
+            "title": "🇮🇳 ₹85,000 Hyderabad Midnight Outlier (Proposed Research Case)",
+            "description": "Customer normally spends ₹500–₹5,000 in Andhra Pradesh on Samsung S24. Suddenly: ₹85,000 to new merchant from new unknown device at 2:13 AM in Hyderabad. AI starts at 72% fraud / High uncertainty. Step 1 (Tx history) -> 88% / Med uncertainty. Step 2 (Device) -> 96% / Low uncertainty -> Auto-Blocked without human labor!",
+            "canonical_mode": "two_step",
+            "transaction": {
+                "transaction_id": "IN-HYD-85000-MIDNIGHT",
+                "amount": 85000.0,
+                "merchant_category": 5,
+                "distance_from_home": 165.0,
+                "distance_from_last_tx": 45.0,
+                "ratio_to_median_price": 34.0,
+                "repeat_retailer": 0,
+                "used_chip": 0,
+                "used_pin": 0,
+                "online_order": 1,
+                "velocity_1h": 1,
+                "velocity_24h": 1,
+                "customer_id": "CUST-AP-4821",
+                "customer_home_state": "Andhra Pradesh",
+                "location_city": "Hyderabad",
+                "time_of_day": "02:13 AM",
+                "normal_avg_amount": 2500.0,
+                "normal_device": "Samsung Galaxy S24",
+                "device_fingerprint": "Unknown Android Device",
+                "merchant_name": "Zenith Tech Electronics",
+                "historical_merchant_tx_count": 0,
+                "is_fraud": 1
+            }
+        },
+        "case_1_confident_genuine": {
+            "title": "Case 1: Confident Genuine (₹600 Routine)",
+            "description": "₹600 routine local groceries, familiar merchant used 20 times, registered Samsung S24. Initial fraud risk 1%, low uncertainty. Conformal prediction set {Legit}. Resolved at Tier 0 autonomously with $0 overhead.",
+            "canonical_mode": None,
+            "transaction": {
+                "transaction_id": "TX-CASE1-GENUINE-600",
+                "amount": 600.0,
+                "merchant_category": 1,
+                "distance_from_home": 2.5,
+                "distance_from_last_tx": 1.0,
+                "ratio_to_median_price": 0.95,
+                "repeat_retailer": 1,
+                "used_chip": 1,
+                "used_pin": 1,
+                "online_order": 0,
+                "velocity_1h": 1,
+                "velocity_24h": 2,
+                "customer_home_state": "Andhra Pradesh",
+                "location_city": "Vijayawada",
+                "normal_avg_amount": 2500.0,
+                "normal_device": "Samsung Galaxy S24",
+                "device_fingerprint": "Samsung Galaxy S24",
+                "is_fraud": 0
+            }
+        },
+        "case_2_confident_fraud": {
+            "title": "Case 2: Confident Fraud (Direct High-Risk Block)",
+            "description": "Obvious high-risk fraud attempt with burst velocity, foreign IP, and maximum entropy. AI outputs 98% fraud with high statistical certainty. Blocked immediately at Tier 0.",
+            "canonical_mode": None,
+            "transaction": {
+                "transaction_id": "TX-CASE2-CONFIDENT-FRAUD",
+                "amount": 145000.0,
+                "merchant_category": 8,
+                "distance_from_home": 620.0,
+                "distance_from_last_tx": 300.0,
+                "ratio_to_median_price": 58.0,
+                "repeat_retailer": 0,
+                "used_chip": 0,
+                "used_pin": 0,
+                "online_order": 1,
+                "velocity_1h": 8,
+                "velocity_24h": 19,
+                "is_fraud": 1
+            }
+        },
+        "case_3_step1_resolved": {
+            "title": "Case 3: Uncertain Resolved by 1st Evidence (Transaction History)",
+            "description": "Borderline transaction where the initial AI is uncertain. The Evidence Selector selects Transaction History (highest VoI). The spend history is completely normal (1.1x avg), collapsing uncertainty. Auto-Approved at Tier 1 with single $0.05 micro-probe.",
+            "canonical_mode": "single_step",
+            "transaction": {
+                "transaction_id": "TX-CASE3-RESOLVED-STEP1",
+                "amount": 2800.0,
+                "merchant_category": 2,
+                "distance_from_home": 38.0,
+                "distance_from_last_tx": 12.0,
+                "ratio_to_median_price": 1.1,
+                "repeat_retailer": 1,
+                "used_chip": 1,
+                "used_pin": 0,
+                "online_order": 1,
+                "velocity_1h": 2,
+                "velocity_24h": 3,
+                "normal_avg_amount": 2500.0,
+                "is_fraud": 0
+            }
+        },
+        "case_4_step2_resolved": {
+            "title": "Case 4: Uncertain Resolved by 2nd Evidence (Tx History + Device)",
+            "description": "Borderline transaction where 1st evidence isn't enough to collapse uncertainty. The Evidence Selector adapts and requests 2nd evidence (Device Fingerprint), which collapses uncertainty to Low. Auto-Blocked at Tier 1.",
+            "canonical_mode": "two_step",
+            "transaction": {
+                "transaction_id": "TX-CASE4-RESOLVED-STEP2",
+                "amount": 85000.0,
+                "merchant_category": 5,
+                "distance_from_home": 165.0,
+                "distance_from_last_tx": 45.0,
+                "ratio_to_median_price": 34.0,
+                "repeat_retailer": 0,
+                "used_chip": 0,
+                "used_pin": 0,
+                "online_order": 1,
+                "velocity_1h": 1,
+                "velocity_24h": 1,
+                "customer_home_state": "Andhra Pradesh",
+                "location_city": "Hyderabad",
+                "normal_avg_amount": 2500.0,
+                "device_fingerprint": "Unknown Device",
+                "is_fraud": 1
+            }
+        },
+        "case_5_inconclusive_human": {
+            "title": "Case 5: Inconclusive After Evidence -> Escalate to Human Investigator",
+            "description": "Borderline transaction where Transaction History, Device History, and Location History all return ambiguous signals (72% -> 70% -> 68% -> 73%). Uncertainty remains high. Further evidence gathering halted to prevent waste. Escalated to Human Investigator with complete 3-step investigation trajectory.",
+            "canonical_mode": "inconclusive_human",
+            "transaction": {
+                "transaction_id": "TX-CASE5-INCONCLUSIVE-HITL",
+                "amount": 85000.0,
+                "merchant_category": 5,
+                "distance_from_home": 85.0,
+                "distance_from_last_tx": 20.0,
+                "ratio_to_median_price": 34.0,
+                "repeat_retailer": 0,
+                "used_chip": 0,
+                "used_pin": 0,
+                "online_order": 1,
+                "velocity_1h": 1,
+                "velocity_24h": 2,
+                "normal_avg_amount": 2500.0,
+                "is_fraud": 1
+            }
+        }
+    }
+
+
+@app.get("/api/audit/ledger")
+async def get_blockchain_ledger(limit: int = 50):
+    """Returns the immutable cryptographic investigation ledger."""
+    if STATE["engine"] is None or not hasattr(STATE["engine"], "blockchain_ledger"):
+        return {"blocks": [], "total": 0}
+    chain = STATE["engine"].blockchain_ledger.chain
+    blocks_dump = [b.model_dump() for b in reversed(chain[-limit:])]
+    return {
+        "blocks": blocks_dump,
+        "total_blocks": len(chain),
+        "head_hash": chain[-1].block_hash if chain else None,
+    }
+
+
+@app.get("/api/audit/verify")
+async def verify_blockchain_integrity():
+    """Validates the cryptographic integrity of all blocks and pointers in the chain."""
+    if STATE["engine"] is None or not hasattr(STATE["engine"], "blockchain_ledger"):
+        raise HTTPException(status_code=503, detail="System models not initialized.")
+    return STATE["engine"].blockchain_ledger.verify_chain_integrity()
+
+
+class TamperPayload(BaseModel):
+    block_index: int
+    fake_action: str = "TAMPERED_APPROVE"
+
+
+@app.post("/api/audit/simulate-tamper")
+async def simulate_blockchain_tampering(payload: TamperPayload):
+    """Simulates an unauthorized modification to show cryptographic tamper detection in real time."""
+    if STATE["engine"] is None or not hasattr(STATE["engine"], "blockchain_ledger"):
+        raise HTTPException(status_code=503, detail="System models not initialized.")
+    return STATE["engine"].blockchain_ledger.simulate_tampering(
+        block_index=payload.block_index, fake_action=payload.fake_action
+    )
+
+
+class RestorePayload(BaseModel):
+    block_index: int
+    original_action: str
+
+
+@app.post("/api/audit/restore")
+async def restore_blockchain_block(payload: RestorePayload):
+    """Restores a tampered block to verify chain recovery."""
+    if STATE["engine"] is None or not hasattr(STATE["engine"], "blockchain_ledger"):
+        raise HTTPException(status_code=503, detail="System models not initialized.")
+    STATE["engine"].blockchain_ledger.restore_block(
+        payload.block_index, payload.original_action
+    )
+    return {
+        "status": "RESTORED",
+        "verification": STATE["engine"].blockchain_ledger.verify_chain_integrity()
+    }
 
 
 @app.post("/api/benchmark/run")

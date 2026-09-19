@@ -1,5 +1,6 @@
-"""
-Generates investigator case briefings, explainability summaries, and verification checklists.
+﻿"""
+Generates investigator case briefings, explainability summaries,
+sequential investigation trajectories, and verification checklists.
 """
 
 from typing import Dict, Any, List
@@ -8,8 +9,8 @@ from safe_escalate.data.schema import DecisionPacket, Transaction
 
 class InvestigatorExplainer:
     """
-    Synthesizes machine learning outputs, conformal intervals, and feature attributions
-    into an actionable human investigation dossier.
+    Synthesizes machine learning outputs, conformal intervals, feature attributions,
+    and multi-step investigation history into an actionable human investigation dossier.
     """
 
     @staticmethod
@@ -29,6 +30,21 @@ class InvestigatorExplainer:
             else "General multi-feature borderline pattern"
         )
 
+        # Build detailed Sequential Investigation History
+        trajectory_briefs = []
+        for step in packet.investigation_trajectory:
+            s_dict = step.model_dump() if hasattr(step, "model_dump") else step
+            trajectory_briefs.append({
+                "step_number": s_dict.get("step_number"),
+                "evidence_name": s_dict.get("evidence_name"),
+                "cost_usd": s_dict.get("cost"),
+                "latency_ms": s_dict.get("latency_ms"),
+                "p_fraud_transition": f"{round(s_dict.get('p_fraud_before', 0)*100, 1)}% -> {round(s_dict.get('p_fraud_after', 0)*100, 1)}%",
+                "uncertainty_transition": f"{round(s_dict.get('uncertainty_before', 0), 2)} -> {round(s_dict.get('uncertainty_after', 0), 2)}",
+                "summary": s_dict.get("summary"),
+                "findings": s_dict.get("findings", {}),
+            })
+
         # Actionable checklist
         checklist = []
         if tx.online_order == 1:
@@ -38,7 +54,9 @@ class InvestigatorExplainer:
         if packet.evidence_collected and packet.evidence_collected.get("two_factor_auth_success") == 0:
             checklist.append("Urgent: 2FA challenge timed out or was rejected by cardholder.")
         if tx.amount > 1000:
-            checklist.append(f"High exposure amount (${tx.amount:.2f}): Requires manager sign-off if approving.")
+            checklist.append(f"High exposure amount (): Requires supervisor review.")
+        if trajectory_briefs:
+            checklist.append(f"Review {len(trajectory_briefs)} automated evidence probes executed prior to escalation.")
         checklist.append("Check recent card activity within last 24 hours for velocity bursts.")
 
         return {
@@ -59,4 +77,10 @@ class InvestigatorExplainer:
             "investigator_checklist": checklist,
             "rationale": packet.investigator_rationale,
             "top_features": list(packet.feature_attributions.items())[:5],
+            "investigation_trajectory": trajectory_briefs,
+            "blockchain_audit": {
+                "block_hash": packet.blockchain_block_hash,
+                "block_index": packet.blockchain_index,
+            },
+            "canonical_case_id": packet.canonical_case_id,
         }

@@ -29,6 +29,17 @@ class Transaction(BaseModel):
     # Kaggle PCA feature dictionary (V1..V28, Time)
     pca_features: Optional[Dict[str, float]] = None
 
+    # Contextual & Behavioral Banking Metadata (e.g. ₹85,000 Hyderabad scenario)
+    customer_id: Optional[str] = None
+    customer_home_state: Optional[str] = None
+    location_city: Optional[str] = None
+    time_of_day: Optional[str] = None
+    normal_avg_amount: Optional[float] = None
+    device_fingerprint: Optional[str] = None
+    normal_device: Optional[str] = None
+    merchant_name: Optional[str] = None
+    historical_merchant_tx_count: Optional[int] = None
+
     # Tier-2 Dynamic Evidence Features (retrieved on-demand)
     device_trust_score: Optional[float] = None
     carrier_sim_swap_age_days: Optional[int] = None
@@ -51,6 +62,24 @@ class EvidencePayload(BaseModel):
     query_latency_ms: int
 
 
+class InvestigationStep(BaseModel):
+    """
+    A single sequential investigation step executed by the Evidence Selector.
+    """
+    step_number: int
+    evidence_type: str  # e.g., "transaction_history", "device_history", "location_history"
+    evidence_name: str
+    cost: float
+    latency_ms: int
+    p_fraud_before: float
+    p_fraud_after: float
+    uncertainty_before: float
+    uncertainty_after: float
+    uncertainty_reduction: float
+    findings: Dict[str, Any] = Field(default_factory=dict)
+    summary: str
+
+
 class DecisionPacket(BaseModel):
     """
     Complete audit trail and decision breakdown for a transaction.
@@ -66,7 +95,11 @@ class DecisionPacket(BaseModel):
     final_action: str  # "APPROVE", "DECLINE", "STEP_UP_RESOLVED", "HUMAN_ESCALATION"
     escalation_tier: int  # 0, 1, 2
     evidence_collected: Optional[Dict[str, Any]] = None
+    investigation_trajectory: List[InvestigationStep] = Field(default_factory=list)
     investigator_rationale: Optional[str] = None
     feature_attributions: Dict[str, float] = Field(default_factory=dict)
     ground_truth: Optional[int] = None
     operational_cost: float = 0.0
+    blockchain_block_hash: Optional[str] = None
+    blockchain_index: Optional[int] = None
+    canonical_case_id: Optional[str] = None

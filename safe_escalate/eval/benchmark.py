@@ -275,12 +275,12 @@ class BenchmarkSuite:
 
             elif packet.escalation_tier == 1:
                 se_tier1_resolved += 1
-                se_query_cost += self.config.costs.cost_evidence_acquisition
+                ev_cost = sum(s.cost for s in packet.investigation_trajectory) if packet.investigation_trajectory else self.config.costs.cost_evidence_acquisition
+                se_query_cost += ev_cost
                 if packet.final_action.startswith("APPROVE"):
                     if tx.is_fraud == 1:
                         se_fraud_loss += tx.amount + self.config.costs.cost_false_negative_penalty
                     else:
-                        # Minor 2FA friction
                         se_friction_cost += self.config.costs.cost_2fa_friction
                 else:
                     if tx.is_fraud == 0:
@@ -291,7 +291,8 @@ class BenchmarkSuite:
 
             elif packet.escalation_tier == 2:
                 se_human_reviews += 1
-                se_query_cost += self.config.costs.cost_evidence_acquisition
+                ev_cost = sum(s.cost for s in packet.investigation_trajectory) if packet.investigation_trajectory else self.config.costs.cost_evidence_acquisition
+                se_query_cost += ev_cost
                 se_human_cost += self.config.costs.cost_human_review
                 # 97% human accuracy
                 if tx.is_fraud == 1:

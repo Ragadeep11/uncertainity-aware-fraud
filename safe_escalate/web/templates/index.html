@@ -46,6 +46,10 @@
           <span>HITL Queue</span>
           <span id="queue-badge" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500 text-white font-bold hidden">0</span>
         </button>
+        <button onclick="switchTab('blockchain')" id="tab-btn-blockchain" class="tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex items-center space-x-1.5">
+          <i data-lucide="link" class="w-4 h-4 text-cyan-400"></i>
+          <span>Blockchain Audit</span>
+        </button>
         <button onclick="switchTab('benchmarks')" id="tab-btn-benchmarks" class="tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex items-center space-x-1.5">
           <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
           <span>Research Evaluation</span>
@@ -245,43 +249,55 @@
           <span class="text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-lg font-mono">Interactive Evaluation</span>
         </div>
 
+        <!-- Primary Research Scenario Highlight Banner -->
+        <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-cyan-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xl">🇮🇳</span>
+              <span class="font-bold text-sm text-amber-300">₹85,000 Hyderabad Midnight Outlier (Proposed Research Case)</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 font-mono border border-amber-500/40">Core Thesis Demo</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-1 max-w-3xl">
+              Customer spends ₹500–₹5,000 in Andhra Pradesh on Samsung Galaxy S24. At 2:13 AM in Hyderabad: sudden ₹85,000 to new merchant from an unknown device. AI starts at <strong>72% fraud / High uncertainty</strong> &rarr; Step 1 (Tx history) &rarr; Step 2 (Device fingerprint) &rarr; <strong>Auto-Blocked at Tier 1 with $0 human labor!</strong>
+            </p>
+          </div>
+          <button type="button" onclick="loadCanonicalCase('hyderabad_outlier')" class="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl text-xs transition flex items-center space-x-2 shadow-lg shadow-amber-500/20 shrink-0">
+            <i data-lucide="play-circle" class="w-4 h-4"></i>
+            <span>Run ₹85,000 Scenario</span>
+          </button>
+        </div>
+
         <div>
-          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Test Scenarios (1-Click Fill)</div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button onclick="loadScenario('grocery')" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 rounded-xl text-left transition group">
-              <div class="flex items-center space-x-2">
-                <span class="text-base">🛒</span>
-                <span class="text-xs font-bold text-white group-hover:text-emerald-300">Routine Groceries</span>
-              </div>
-              <div class="text-[11px] text-slate-500 mt-1">$28.50 &bull; Home 2mi &bull; Chip &bull; Repeat</div>
-              <span class="inline-block mt-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">Expect: Tier 0 Approve</span>
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">The 5 Canonical Research Pathways</div>
+          <div class="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+            <button type="button" onclick="loadCanonicalCase('case_1_confident_genuine')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 rounded-xl text-left transition group">
+              <div class="text-xs font-bold text-white group-hover:text-emerald-300">Case 1: Confident Genuine</div>
+              <div class="text-[10px] text-slate-500 mt-0.5">₹600 Groceries &bull; Known Dev</div>
+              <span class="inline-block mt-1.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">Tier 0 Approve ($0)</span>
             </button>
 
-            <button onclick="loadScenario('traveler')" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 rounded-xl text-left transition group">
-              <div class="flex items-center space-x-2">
-                <span class="text-base">✈️</span>
-                <span class="text-xs font-bold text-white group-hover:text-amber-300">Borderline Traveler</span>
-              </div>
-              <div class="text-[11px] text-slate-500 mt-1">$340.00 &bull; Dist 55mi &bull; Online</div>
-              <span class="inline-block mt-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">Expect: Tier 1 Step-Up</span>
+            <button type="button" onclick="loadCanonicalCase('case_2_confident_fraud')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/40 rounded-xl text-left transition group">
+              <div class="text-xs font-bold text-white group-hover:text-rose-300">Case 2: Confident Fraud</div>
+              <div class="text-[10px] text-slate-500 mt-0.5">₹145,000 &bull; High Risk &bull; 98%</div>
+              <span class="inline-block mt-1.5 text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono">Tier 0 Block ($0)</span>
             </button>
 
-            <button onclick="loadScenario('luxury')" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 rounded-xl text-left transition group">
-              <div class="flex items-center space-x-2">
-                <span class="text-base">💎</span>
-                <span class="text-xs font-bold text-white group-hover:text-purple-300">High-Value Outlier</span>
-              </div>
-              <div class="text-[11px] text-slate-500 mt-1">$4,850.00 &bull; Novel Pattern</div>
-              <span class="inline-block mt-2 text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">Expect: Tier 2 HITL</span>
+            <button type="button" onclick="loadCanonicalCase('case_3_step1_resolved')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 rounded-xl text-left transition group">
+              <div class="text-xs font-bold text-white group-hover:text-cyan-300">Case 3: Step 1 Resolved</div>
+              <div class="text-[10px] text-slate-500 mt-0.5">₹2,800 &bull; Tx History resolves</div>
+              <span class="inline-block mt-1.5 text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono">Tier 1 Auto ($0.05)</span>
             </button>
 
-            <button onclick="loadScenario('fraud')" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/40 rounded-xl text-left transition group">
-              <div class="flex items-center space-x-2">
-                <span class="text-base">🚨</span>
-                <span class="text-xs font-bold text-white group-hover:text-rose-300">Account Takeover</span>
-              </div>
-              <div class="text-[11px] text-slate-500 mt-1">$890.00 &bull; Burst Velocity 6 &bull; Online</div>
-              <span class="inline-block mt-2 text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono">Expect: Step-Up Decline</span>
+            <button type="button" onclick="loadCanonicalCase('case_4_step2_resolved')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 rounded-xl text-left transition group">
+              <div class="text-xs font-bold text-white group-hover:text-amber-300">Case 4: Step 2 Resolved</div>
+              <div class="text-[10px] text-slate-500 mt-0.5">₹85,000 &bull; Tx + Device history</div>
+              <span class="inline-block mt-1.5 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">Tier 1 Auto ($0.15)</span>
+            </button>
+
+            <button type="button" onclick="loadCanonicalCase('case_5_inconclusive_human')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 rounded-xl text-left transition group">
+              <div class="text-xs font-bold text-white group-hover:text-purple-300">Case 5: Inconclusive</div>
+              <div class="text-[10px] text-slate-500 mt-0.5">Evidence inconclusive &bull; 73%</div>
+              <span class="inline-block mt-1.5 text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">Tier 2 Human ($12)</span>
             </button>
           </div>
         </div>
@@ -470,6 +486,34 @@
                   <div>Device Trust: <span id="manual-ev-device" class="font-bold">--</span></div>
                   <div>SIM Swap Age: <span id="manual-ev-sim" class="font-bold">--</span></div>
                   <div>Query Fee: <span class="text-emerald-400 font-bold">$0.20</span></div>
+                </div>
+              </div>
+
+              <!-- Sequential Evidence Investigation Trajectory (VoI) -->
+              <div id="manual-trajectory-container" class="p-3.5 bg-slate-950 rounded-xl border border-cyan-500/20 space-y-2 hidden">
+                <div class="flex items-center justify-between">
+                  <div class="text-[11px] font-bold uppercase tracking-wider text-cyan-400 flex items-center space-x-1.5">
+                    <i data-lucide="git-commit" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span>Sequential Investigation Trajectory (VoI)</span>
+                  </div>
+                  <span id="manual-trajectory-cost" class="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Cost: $0.00</span>
+                </div>
+                <div id="manual-trajectory-steps" class="space-y-2 text-[11px]">
+                  <!-- Rendered dynamically -->
+                </div>
+              </div>
+
+              <!-- Cryptographic Blockchain Audit Sealed Proof -->
+              <div id="manual-blockchain-card" class="p-3 bg-slate-950 rounded-xl border border-indigo-500/30 text-xs font-mono hidden space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-indigo-300 font-bold flex items-center space-x-1.5">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <span>Blockchain Block #<span id="manual-block-idx">--</span></span>
+                  </span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono border border-indigo-500/40">SHA-256 Sealed</span>
+                </div>
+                <div class="text-[10px] text-slate-400 truncate">
+                  Hash: <span id="manual-block-hash" class="text-slate-300 font-mono">--</span>
                 </div>
               </div>
 
@@ -793,6 +837,104 @@
 
       </div>
 
+    <!-- ========================================================= -->
+    <!-- TAB 6: BLOCKCHAIN AUDIT LEDGER                            -->
+    <!-- ========================================================= -->
+    <div id="tab-blockchain" class="tab-content hidden space-y-6">
+      
+      <!-- Top Status Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Total Blocks Sealed</div>
+          <div class="text-2xl font-bold text-white font-mono" id="bc-total-blocks">0</div>
+          <div class="text-xs text-slate-500 mt-1">Immutable audit chain depth</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Cryptographic Integrity</div>
+          <div class="text-2xl font-bold text-emerald-400 font-mono flex items-center space-x-2" id="bc-integrity-status">
+            <span>VALID</span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          </div>
+          <div class="text-xs text-emerald-500/80 mt-1" id="bc-integrity-detail">100% SHA-256 hash verified</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Head Block Hash</div>
+          <div class="text-xs font-mono text-cyan-400 truncate mt-1.5" id="bc-head-hash">--</div>
+          <div class="text-[10px] text-slate-500 mt-1">Latest cryptographically signed block</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+          <div class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">Audit Protocol</div>
+          <div class="text-xl font-bold text-purple-400 font-mono">SHA-256 Ledger</div>
+          <div class="text-xs text-slate-500 mt-1">Tamper-evident verification</div>
+        </div>
+      </div>
+
+      <!-- Action Banner -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+            <i data-lucide="shield" class="w-4 h-4 text-cyan-400"></i>
+            <span>Tamper-Evident Ledger Operations</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Every transaction investigation, evidence sequence, and human judgment is cryptographically sealed.</p>
+        </div>
+        <div class="flex items-center space-x-2.5">
+          <button onclick="verifyBlockchainIntegrity()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-lg shadow-emerald-600/20">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>Verify Integrity</span>
+          </button>
+          <button onclick="simulateTamperDemo()" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-lg shadow-rose-600/20">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+            <span>Simulate Tamper Attack</span>
+          </button>
+          <button onclick="restoreBlockchainLedger()" id="btn-bc-restore" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-medium transition hidden flex items-center space-x-1.5">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <span>Restore Ledger</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tamper Alert Banner (Hidden by default) -->
+      <div id="bc-tamper-banner" class="hidden p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-start space-x-3">
+        <i data-lucide="alert-octagon" class="w-5 h-5 text-rose-400 shrink-0 mt-0.5"></i>
+        <div>
+          <div class="font-bold text-sm text-rose-200">Cryptographic Tampering Detected!</div>
+          <p class="mt-0.5" id="bc-tamper-message">Block content or parent hash pointer was modified. The SHA-256 cryptographic chain has been broken.</p>
+        </div>
+      </div>
+
+      <!-- Blocks Feed Table / List -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+            <i data-lucide="link" class="w-4 h-4 text-cyan-400"></i>
+            <span>Cryptographic Investigation Blocks</span>
+          </h3>
+          <button onclick="fetchBlockchainLedger()" class="text-xs text-slate-400 hover:text-white flex items-center space-x-1">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Refresh Feed</span>
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-950/80 text-slate-400 uppercase font-mono text-[11px] border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Block #</th>
+                <th class="px-4 py-3">Timestamp (UTC)</th>
+                <th class="px-4 py-3">Tx ID & Amount</th>
+                <th class="px-4 py-3">Initial -> Final Risk</th>
+                <th class="px-4 py-3">Evidence Trajectory</th>
+                <th class="px-4 py-3">Decision Sealed</th>
+                <th class="px-4 py-3">SHA-256 Digest</th>
+              </tr>
+            </thead>
+            <tbody id="bc-table-body" class="divide-y divide-slate-800/60 font-mono">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
 
   </main>
@@ -805,6 +947,6 @@
   </footer>
 
   <!-- Application Logic -->
-  <script src="/static/js/dashboard.js?v=2.3"></script>
+  <script src="/static/js/dashboard.js?v=2.4"></script>
 </body>
 </html>
