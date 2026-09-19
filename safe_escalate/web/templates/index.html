@@ -651,15 +651,33 @@
         <div>
           <h2 class="text-lg font-bold text-white flex items-center space-x-2">
             <i data-lucide="award" class="w-5 h-5 text-amber-400"></i>
-            <span>Empirical Benchmark: SafeEscalate vs. Baselines</span>
+            <span>Empirical Research Suite & Academic Prototype Evaluation</span>
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Rigorous simulation on 6,000 holdout transactions across 4 competing decision policies</p>
+          <p class="text-xs text-slate-400 mt-0.5">Experiments A–E, Calibration Diagnostics, Ablation Studies, Statistical Significance & Blockchain Benchmarks</p>
         </div>
         <div>
-          <button onclick="runBenchmarkExperiment()" id="btn-run-benchmark" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-lg shadow-indigo-600/20">
+          <button onclick="runResearchExperimentsBattery()" id="btn-run-benchmark" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-lg shadow-indigo-600/20">
             <i data-lucide="flask-conical" class="w-4 h-4"></i>
-            <span id="benchmark-btn-text">Re-run Benchmark</span>
+            <span id="benchmark-btn-text">Re-run Research Battery</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Executive Academic Finding Banner -->
+      <div class="bg-gradient-to-r from-indigo-950/80 via-purple-950/60 to-slate-900 border border-indigo-500/30 rounded-2xl p-6 shadow-xl">
+        <div class="flex items-start space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 flex items-center justify-center shrink-0 mt-0.5">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider text-indigo-400 font-bold">Research Breakthrough Finding</span>
+            <p id="research-summary-text" class="text-sm sm:text-base font-semibold text-white mt-1 leading-relaxed">
+              Loading empirical research findings...
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+              Evaluated on holdout transactions without arbitrary target assumptions. Success defined strictly via fraud-specific metrics (PR-AUC, Recall, ECE, Human Workload Reduction).
+            </p>
+          </div>
         </div>
       </div>
 
@@ -671,15 +689,235 @@
           <p class="text-xs text-slate-500 mt-2">Fewer manual reviews vs. Standard Dual-Threshold abstention without loss in fraud recall.</p>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-          <div class="text-slate-400 text-xs uppercase font-medium">Total Operational Cost Savings</div>
-          <div class="text-3xl font-bold text-cyan-400 font-mono mt-1" id="bm-kpi-cost">--%</div>
-          <p class="text-xs text-slate-500 mt-2">Net cost reduction vs. Static Single Threshold ($\tau=0.5$).</p>
+          <div class="text-slate-400 text-xs uppercase font-medium">Inquiry Checks Avoided</div>
+          <div class="text-3xl font-bold text-cyan-400 font-mono mt-1" id="bm-kpi-checks">--%</div>
+          <p class="text-xs text-slate-500 mt-2">Reduction in API evidence probes per transaction vs. Fixed-Order checklist investigation.</p>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <div class="text-slate-400 text-xs uppercase font-medium">Fraud Detection Recall</div>
           <div class="text-3xl font-bold text-indigo-400 font-mono mt-1" id="bm-kpi-recall">--%</div>
-          <p class="text-xs text-slate-500 mt-2">Percentage of fraudulent transactions successfully blocked or triaged.</p>
+          <p class="text-xs text-slate-500 mt-2">Statistically non-inferior recall verified via paired equivalence hypothesis testing.</p>
         </div>
+      </div>
+
+      <!-- SECTION 1: PRIMARY RESEARCH COMPARISON TABLE -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+              <i data-lucide="table" class="w-4 h-4 text-indigo-400"></i>
+              <span>Primary Comparative Evaluation Matrix (Experiments A through E)</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Direct head-to-head empirical comparison across baseline paradigms</p>
+          </div>
+          <span class="text-[11px] font-mono text-emerald-400 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+            Kaggle CreditCard Holdout
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-950/80 text-slate-400 uppercase font-mono text-[11px] border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Method / Strategy</th>
+                <th class="px-4 py-3">PR-AUC</th>
+                <th class="px-4 py-3">Fraud Recall</th>
+                <th class="px-4 py-3">Human Review %</th>
+                <th class="px-4 py-3">Avg. Evidence Checks</th>
+                <th class="px-4 py-3">Cost / Tx ($)</th>
+              </tr>
+            </thead>
+            <tbody id="research-primary-table-body" class="divide-y divide-slate-800 font-mono">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 2: EXPERIMENT A & EXPERIMENT B -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Experiment A: ML Baselines -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                <i data-lucide="cpu" class="w-4 h-4 text-indigo-400"></i>
+                <span>Experiment A: Baseline ML Classifiers</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Fraud-specific metrics on extreme class imbalance (No arbitrary 95% accuracy)</p>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 rounded font-mono">Tier 0 Models</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+                <tr>
+                  <th class="px-3 py-2">Model</th>
+                  <th class="px-3 py-2">Precision</th>
+                  <th class="px-3 py-2">Recall</th>
+                  <th class="px-3 py-2">F1-Score</th>
+                  <th class="px-3 py-2">PR-AUC</th>
+                  <th class="px-3 py-2">ROC-AUC</th>
+                </tr>
+              </thead>
+              <tbody id="exp-a-table-body" class="divide-y divide-slate-800 font-mono">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Experiment B: Calibration & Conformal Uncertainty -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                <i data-lucide="compass" class="w-4 h-4 text-purple-400"></i>
+                <span>Experiment B: Calibration & Uncertainty Quality</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Expected Calibration Error (ECE), Conformal Coverage & Error Correlation</p>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded font-mono">Statistical Guarantees</span>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400 uppercase font-mono">Expected Calibration Error (ECE)</span>
+              <div id="exp-b-ece" class="text-lg font-bold text-amber-400 font-mono mt-0.5">--</div>
+              <span class="text-[10px] text-slate-500">Lower is better (10 equal-width bins)</span>
+            </div>
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400 uppercase font-mono">Conformal Coverage (1 - α)</span>
+              <div id="exp-b-coverage" class="text-lg font-bold text-emerald-400 font-mono mt-0.5">--</div>
+              <span class="text-[10px] text-slate-500">Nominal 95.0% mathematical guarantee</span>
+            </div>
+          </div>
+
+          <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+            <span class="text-[10px] text-slate-400 uppercase font-mono">Selective Classification: Error Rate by Uncertainty Tier</span>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono">
+              <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[10px]">Low Uncertainty</div>
+                <div id="exp-b-err-low" class="text-emerald-400 font-bold mt-1">--%</div>
+              </div>
+              <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[10px]">Medium Uncertainty</div>
+                <div id="exp-b-err-med" class="text-amber-400 font-bold mt-1">--%</div>
+              </div>
+              <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[10px]">High Uncertainty</div>
+                <div id="exp-b-err-high" class="text-rose-400 font-bold mt-1">--%</div>
+              </div>
+            </div>
+            <p id="exp-b-corr-text" class="text-[11px] text-slate-400 italic text-center pt-1"></p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SECTION 3: COMPONENT ABLATION STUDY -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+              <i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i>
+              <span>Component Ablation Study: Isolating Architectural Impact</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Validating the contribution of Uncertainty, Cost Awareness, Adaptive VoI, and Stopping Rules</p>
+          </div>
+          <span class="text-[10px] font-mono text-cyan-400 px-2 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded">
+            Component Isolation
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Configuration</th>
+                <th class="px-4 py-3">Human Review %</th>
+                <th class="px-4 py-3">Avg. Checks</th>
+                <th class="px-4 py-3">Fraud Recall</th>
+                <th class="px-4 py-3">Cost / Tx</th>
+                <th class="px-4 py-3">Empirical Finding</th>
+              </tr>
+            </thead>
+            <tbody id="ablation-table-body" class="divide-y divide-slate-800 font-mono">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 4: STATISTICAL SIGNIFICANCE & BLOCKCHAIN BENCHMARK -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Statistical Significance Tests -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <div class="border-b border-slate-800 pb-3">
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <i data-lucide="check-check" class="w-4 h-4 text-emerald-400"></i>
+              <span>Statistical Significance & Hypothesis Testing</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Repeated bootstrap tests (25 resamples) with 95% Confidence Intervals & p-values</p>
+          </div>
+          <div class="space-y-3" id="stats-tests-container">
+            <!-- Dynamically populated hypothesis test cards -->
+          </div>
+        </div>
+
+        <!-- Privacy-Preserving Blockchain Benchmark -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <div class="border-b border-slate-800 pb-3">
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <i data-lucide="shield-check" class="w-4 h-4 text-cyan-400"></i>
+              <span>Cryptographic Blockchain Audit Benchmark vs. SQL</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Zero-Knowledge Off-Chain PII Hashing with On-Chain Tamper-Evident SHA-256 Chaining</p>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400 uppercase font-mono">Throughput (Blocks/Sec)</span>
+              <div id="bc-bench-tps" class="text-lg font-bold text-cyan-400 font-mono mt-0.5">--</div>
+              <span class="text-[10px] text-slate-500">Sub-millisecond SHA-256 block sealing</span>
+            </div>
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400 uppercase font-mono">Verification Latency</span>
+              <div id="bc-bench-latency" class="text-lg font-bold text-emerald-400 font-mono mt-0.5">--</div>
+              <span class="text-[10px] text-slate-500">Full Genesis-to-Head chain check</span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+                <tr>
+                  <th class="px-3 py-2">Metric / Feature</th>
+                  <th class="px-3 py-2 text-cyan-400">SafeEscalate Blockchain</th>
+                  <th class="px-3 py-2 text-slate-400">Traditional SQL Audit</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800 font-mono text-[11px]">
+                <tr>
+                  <td class="px-3 py-2 text-white">Tamper Detection</td>
+                  <td class="px-3 py-2 text-emerald-400 font-bold">Immediate pointer invalidation</td>
+                  <td class="px-3 py-2 text-rose-400">None (silent UPDATE/DELETE)</td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-2 text-white">Immutability</td>
+                  <td class="px-3 py-2 text-emerald-400 font-bold">Cryptographically Guaranteed</td>
+                  <td class="px-3 py-2 text-amber-400">DBA Root Privilege Vulnerable</td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-2 text-white">Privacy Standard</td>
+                  <td class="px-3 py-2 text-cyan-400">Zero-Knowledge Off-Chain Hash</td>
+                  <td class="px-3 py-2 text-slate-400">Raw PII stored in table</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <!-- Interactive Benchmark Charts -->
@@ -700,32 +938,6 @@
           <div class="h-64">
             <canvas id="chart-reviews"></canvas>
           </div>
-        </div>
-      </div>
-
-      <!-- Full Comparison Table -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        <div class="p-4 border-b border-slate-800">
-          <h3 class="font-bold text-sm text-white">Full Benchmark Results Table</h3>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-slate-300">
-            <thead class="bg-slate-950/80 text-slate-400 uppercase font-mono text-[11px] border-b border-slate-800">
-              <tr>
-                <th class="px-4 py-3">Decision Policy</th>
-                <th class="px-4 py-3">Total Cost ($)</th>
-                <th class="px-4 py-3">Fraud Loss</th>
-                <th class="px-4 py-3">Friction Cost</th>
-                <th class="px-4 py-3">Human Labor Cost</th>
-                <th class="px-4 py-3">Human Reviews</th>
-                <th class="px-4 py-3">Fraud Recall</th>
-                <th class="px-4 py-3">Cost / Tx</th>
-              </tr>
-            </thead>
-            <tbody id="benchmark-table-body" class="divide-y divide-slate-800 font-mono">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
         </div>
       </div>
 

@@ -660,3 +660,23 @@ async def update_config_params(payload: ConfigUpdatePayload):
         STATE["engine"].cost_evaluator = CostMatrixEvaluator(costs)
 
     return {"status": "UPDATED", "config": STATE["config"].to_dict()}
+
+
+@app.get("/api/research/experiments")
+async def get_research_experiments():
+    """Returns the comprehensive academic research experiment battery (A-E, ablations, statistical significance, blockchain)."""
+    if STATE.get("research_results") is None:
+        from safe_escalate.eval.research_experiments import ResearchExperimentSuite
+        suite = ResearchExperimentSuite(config=STATE["config"], dataset_type=STATE.get("dataset_type", "kaggle"))
+        STATE["research_results"] = suite.run_all(n_samples=1000)
+    return STATE["research_results"]
+
+
+@app.post("/api/research/run-experiments")
+async def run_research_experiments_endpoint(samples: int = 1000):
+    """Triggers an empirical execution of all research experiments, ablations, and hypothesis tests."""
+    from safe_escalate.eval.research_experiments import ResearchExperimentSuite
+    suite = ResearchExperimentSuite(config=STATE["config"], dataset_type=STATE.get("dataset_type", "kaggle"))
+    results = suite.run_all(n_samples=samples)
+    STATE["research_results"] = results
+    return results

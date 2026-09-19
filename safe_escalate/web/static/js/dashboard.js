@@ -379,31 +379,200 @@ async function resolveCase(txId, decision) {
 async function loadBenchmarkData() {
   try {
     const res = await fetch("/api/benchmark/latest");
-    if (!res.ok) return;
-    const data = await res.json();
-    renderBenchmarkResults(data);
-  } catch (err) {
-    console.error("Error loading benchmark:", err);
-  }
-}
-
-async function runBenchmarkExperiment() {
-  const btn = document.getElementById("btn-run-benchmark");
-  const text = document.getElementById("benchmark-btn-text");
-  btn.disabled = true;
-  text.innerText = "Simulating 6,000 Transactions...";
-
-  try {
-    const res = await fetch("/api/benchmark/run", { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       renderBenchmarkResults(data);
     }
   } catch (err) {
-    console.error("Benchmark error:", err);
+    console.error("Error loading benchmark:", err);
+  }
+  loadResearchExperiments();
+}
+
+async function loadResearchExperiments() {
+  try {
+    const res = await fetch("/api/research/experiments");
+    if (!res.ok) return;
+    const data = await res.json();
+    renderResearchExperiments(data);
+  } catch (err) {
+    console.error("Error loading research experiments:", err);
+  }
+}
+
+async function runResearchExperimentsBattery() {
+  const btn = document.getElementById("btn-run-benchmark");
+  const text = document.getElementById("benchmark-btn-text");
+  if (btn) btn.disabled = true;
+  if (text) text.innerText = "Running Academic Battery...";
+
+  try {
+    const res = await fetch("/api/research/run-experiments?samples=1000", { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      renderResearchExperiments(data);
+    }
+  } catch (err) {
+    console.error("Error running research experiments:", err);
   } finally {
-    btn.disabled = false;
-    text.innerText = "Re-run Benchmark";
+    if (btn) btn.disabled = false;
+    if (text) text.innerText = "Re-run Research Battery";
+  }
+}
+
+function renderResearchExperiments(data) {
+  if (!data) return;
+
+  // 1. Executive summary finding
+  const summaryElem = document.getElementById("research-summary-text");
+  if (summaryElem && data.summary_finding) {
+    summaryElem.innerText = data.summary_finding;
+  }
+
+  // 2. Primary Comparative Evaluation Matrix
+  const primaryTbody = document.getElementById("research-primary-table-body");
+  if (primaryTbody && data.primary_comparison_table) {
+    primaryTbody.innerHTML = "";
+    data.primary_comparison_table.forEach((row) => {
+      const isProposed = row.method.includes("Proposed") || row.method.includes("Adaptive");
+      const tr = document.createElement("tr");
+      tr.className = isProposed ? "bg-indigo-950/60 border-l-4 border-indigo-500 font-bold" : "hover:bg-slate-800/40";
+      tr.innerHTML = `
+        <td class="px-4 py-3 text-white flex items-center space-x-2">
+          ${isProposed ? '<span class="px-1.5 py-0.5 rounded bg-indigo-500 text-white text-[10px] uppercase tracking-wider">Proposed</span>' : ''}
+          <span>${row.method}</span>
+        </td>
+        <td class="px-4 py-3 text-cyan-400">${typeof row.pr_auc === 'number' ? row.pr_auc.toFixed(4) : row.pr_auc}</td>
+        <td class="px-4 py-3 text-emerald-400">${row.recall_pct}</td>
+        <td class="px-4 py-3 ${row.human_review_pct === '—' ? 'text-slate-500' : 'text-purple-400'}">${row.human_review_pct}</td>
+        <td class="px-4 py-3 text-amber-400">${row.avg_evidence_checks}</td>
+        <td class="px-4 py-3 text-slate-200">${row.cost_per_tx}</td>
+      `;
+      primaryTbody.appendChild(tr);
+    });
+  }
+
+  // 3. KPIs
+  if (data.experiment_c_direct_hitl && data.experiment_e_proposed) {
+    const cRate = data.experiment_c_direct_hitl.human_review_rate_pct;
+    const eRate = data.experiment_e_proposed.human_review_rate_pct;
+    const redWorkload = cRate > 0 ? ((cRate - eRate) / cRate * 100).toFixed(1) : "0.0";
+    const elemWorkload = document.getElementById("bm-kpi-workload");
+    if (elemWorkload) elemWorkload.innerText = `${redWorkload}%`;
+
+    const dChecks = data.experiment_d_fixed_evidence.avg_evidence_checks;
+    const eChecks = data.experiment_e_proposed.avg_evidence_checks;
+    const redChecks = dChecks > 0 ? ((dChecks - eChecks) / dChecks * 100).toFixed(1) : "0.0";
+    const elemChecks = document.getElementById("bm-kpi-checks");
+    if (elemChecks) elemChecks.innerText = `${redChecks}%`;
+
+    const elemRecall = document.getElementById("bm-kpi-recall");
+    if (elemRecall) elemRecall.innerText = `${data.experiment_e_proposed.fraud_recall_pct}%`;
+  }
+
+  // 4. Experiment A: Baselines Table
+  const expABody = document.getElementById("exp-a-table-body");
+  if (expABody && data.experiment_a_baselines) {
+    expABody.innerHTML = "";
+    Object.values(data.experiment_a_baselines).forEach((m) => {
+      const tr = document.createElement("tr");
+      tr.className = "hover:bg-slate-800/40";
+      tr.innerHTML = `
+        <td class="px-3 py-2 text-white font-medium">${m.model_name}</td>
+        <td class="px-3 py-2 text-slate-300">${(m.precision * 100).toFixed(1)}%</td>
+        <td class="px-3 py-2 text-emerald-400">${(m.recall * 100).toFixed(1)}%</td>
+        <td class="px-3 py-2 text-indigo-400">${m.f1_score.toFixed(3)}</td>
+        <td class="px-3 py-2 text-cyan-400 font-bold">${m.pr_auc.toFixed(4)}</td>
+        <td class="px-3 py-2 text-amber-400">${m.roc_auc.toFixed(4)}</td>
+      `;
+      expABody.appendChild(tr);
+    });
+  }
+
+  // 5. Experiment B: Calibration & Uncertainty Quality
+  if (data.experiment_b_calibration) {
+    const b = data.experiment_b_calibration;
+    const eceElem = document.getElementById("exp-b-ece");
+    if (eceElem) eceElem.innerText = b.expected_calibration_error_ece.toFixed(4);
+
+    const covElem = document.getElementById("exp-b-coverage");
+    if (covElem) covElem.innerText = `${(b.empirical_conformal_coverage * 100).toFixed(1)}%`;
+
+    if (b.error_rate_by_uncertainty_tier) {
+      const errTiers = b.error_rate_by_uncertainty_tier;
+      const elLow = document.getElementById("exp-b-err-low");
+      const elMed = document.getElementById("exp-b-err-med");
+      const elHigh = document.getElementById("exp-b-err-high");
+      if (elLow) elLow.innerText = `${(errTiers.low_uncertainty_error_rate * 100).toFixed(1)}%`;
+      if (elMed) elMed.innerText = `${(errTiers.medium_uncertainty_error_rate * 100).toFixed(1)}%`;
+      if (elHigh) elHigh.innerText = `${(errTiers.high_uncertainty_error_rate * 100).toFixed(1)}%`;
+    }
+
+    const corrText = document.getElementById("exp-b-corr-text");
+    if (corrText && b.uncertainty_error_correlation) {
+      corrText.innerText = `Correlation: ${b.uncertainty_error_correlation}`;
+    }
+  }
+
+  // 6. Ablation Study Matrix
+  const ablBody = document.getElementById("ablation-table-body");
+  if (ablBody && data.ablation_study) {
+    ablBody.innerHTML = "";
+    Object.values(data.ablation_study).forEach((row) => {
+      const isFull = row.name.includes("Full Proposed");
+      const tr = document.createElement("tr");
+      tr.className = isFull ? "bg-cyan-950/40 border-l-4 border-cyan-400 font-bold" : "hover:bg-slate-800/40";
+      tr.innerHTML = `
+        <td class="px-4 py-2.5 text-white">${row.name}</td>
+        <td class="px-4 py-2.5 text-purple-400">${row.human_review_rate_pct}%</td>
+        <td class="px-4 py-2.5 text-amber-400">${row.avg_evidence_checks}</td>
+        <td class="px-4 py-2.5 text-emerald-400">${row.fraud_recall_pct}%</td>
+        <td class="px-4 py-2.5 text-cyan-400">$${row.cost_per_tx.toFixed(2)}</td>
+        <td class="px-4 py-2.5 text-slate-400 text-[11px] font-sans">${row.impact_finding}</td>
+      `;
+      ablBody.appendChild(tr);
+    });
+  }
+
+  // 7. Statistical Significance & Hypothesis Testing
+  const statsContainer = document.getElementById("stats-tests-container");
+  if (statsContainer && data.statistical_significance && data.statistical_significance.hypothesis_testing) {
+    statsContainer.innerHTML = "";
+    const tests = data.statistical_significance.hypothesis_testing;
+    Object.entries(tests).forEach(([testKey, t]) => {
+      const card = document.createElement("div");
+      card.className = "p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between space-x-3";
+      const isSig = t.statistically_significant || t.is_statistically_comparable;
+      card.innerHTML = `
+        <div>
+          <div class="text-xs font-bold text-white flex items-center space-x-2">
+            <span>${testKey.replace(/_/g, ' ').toUpperCase()}</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">${t.conclusion}</p>
+          <div class="text-[10px] font-mono text-slate-500 mt-1">
+            Test: ${t.test} | t-stat: ${t.t_statistic} | p-value: ${t.p_value}
+          </div>
+        </div>
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${isSig ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}">
+          ${isSig ? 'Pass (p < 0.01)' : 'Parity'}
+        </span>
+      `;
+      statsContainer.appendChild(card);
+    });
+  }
+
+  // 8. Blockchain Benchmark
+  if (data.blockchain_benchmark) {
+    const bc = data.blockchain_benchmark;
+    const tpsElem = document.getElementById("bc-bench-tps");
+    if (tpsElem) tpsElem.innerText = `${bc.throughput_blocks_per_sec.toLocaleString()}`;
+
+    const latElem = document.getElementById("bc-bench-latency");
+    if (latElem) latElem.innerText = `${bc.verification_latency_ms.toFixed(2)} ms`;
+  }
+
+  if (window.lucide) {
+    lucide.createIcons();
   }
 }
 

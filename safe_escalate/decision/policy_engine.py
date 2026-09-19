@@ -145,7 +145,13 @@ class SafeEscalatePolicyEngine:
                     action, tx.is_fraud, tx.amount, tier=0
                 )
 
-            # Record into Blockchain Audit Ledger
+            # Record into Blockchain Audit Ledger (with privacy-preserving off-chain data hash)
+            off_chain_data = {
+                "customer_id": getattr(tx, "customer_id", None),
+                "location_city": getattr(tx, "location_city", None),
+                "device_fingerprint": getattr(tx, "device_fingerprint", None),
+                "customer_home_state": getattr(tx, "customer_home_state", None),
+            }
             block = self.blockchain_ledger.record_investigation(
                 transaction_id=tx.transaction_id,
                 amount=tx.amount,
@@ -157,6 +163,7 @@ class SafeEscalatePolicyEngine:
                 escalation_tier=0,
                 investigation_trajectory=[],
                 investigator_rationale=rationale,
+                off_chain_data=off_chain_data,
             )
             packet.blockchain_block_hash = block.block_hash
             packet.blockchain_index = block.index
@@ -260,7 +267,13 @@ class SafeEscalatePolicyEngine:
                 action, tx.is_fraud, tx.amount, tier=tier
             ) + evidence_cost
 
-        # Seal onto Blockchain Audit Ledger
+        # Seal onto Blockchain Audit Ledger (with privacy-preserving off-chain data hash)
+        off_chain_data = {
+            "customer_id": getattr(tx, "customer_id", None),
+            "location_city": getattr(tx, "location_city", None),
+            "device_fingerprint": getattr(tx, "device_fingerprint", None),
+            "customer_home_state": getattr(tx, "customer_home_state", None),
+        }
         block = self.blockchain_ledger.record_investigation(
             transaction_id=tx.transaction_id,
             amount=tx.amount,
@@ -272,6 +285,7 @@ class SafeEscalatePolicyEngine:
             escalation_tier=tier,
             investigation_trajectory=trajectory,
             investigator_rationale=rationale,
+            off_chain_data=off_chain_data,
         )
         packet.blockchain_block_hash = block.block_hash
         packet.blockchain_index = block.index
