@@ -496,3 +496,331 @@ async function savePolicyConfig() {
     console.error("Error updating policy config:", err);
   }
 }
+
+// -------------------------------------------------------------
+// TAB: MANUAL INPUT & SCENARIO TESTER
+// -------------------------------------------------------------
+
+function toggleAdvancedTier2() {
+  const panel = document.getElementById("panel-advanced-tier2");
+  const icon = document.getElementById("icon-advanced-tier2");
+  if (panel.classList.contains("hidden")) {
+    panel.classList.remove("hidden");
+    if (icon) icon.classList.add("rotate-90");
+  } else {
+    panel.classList.add("hidden");
+    if (icon) icon.classList.remove("rotate-90");
+  }
+}
+
+function loadScenario(type) {
+  const randomSuffix = Math.floor(100 + Math.random() * 900);
+  document.getElementById("manual-tx-id").value = `SCENARIO-${type.toUpperCase()}-${randomSuffix}`;
+
+  // Clear overrides
+  document.getElementById("manual-override-2fa").value = "";
+  document.getElementById("manual-override-device").value = "";
+  document.getElementById("manual-override-sim").value = "";
+
+  if (type === "grocery") {
+    document.getElementById("manual-amount").value = "28.50";
+    document.getElementById("manual-merchant").value = "1";
+    document.getElementById("manual-dist-home").value = "2.1";
+    document.getElementById("manual-dist-last").value = "0.5";
+    document.getElementById("manual-ratio-median").value = "0.9";
+    document.getElementById("manual-repeat-retailer").checked = true;
+    document.getElementById("manual-used-chip").checked = true;
+    document.getElementById("manual-used-pin").checked = true;
+    document.getElementById("manual-online-order").checked = false;
+    document.getElementById("manual-vel-1h").value = "0";
+    document.getElementById("manual-vel-24h").value = "1";
+  } else if (type === "traveler") {
+    document.getElementById("manual-amount").value = "340.00";
+    document.getElementById("manual-merchant").value = "3";
+    document.getElementById("manual-dist-home").value = "58.0";
+    document.getElementById("manual-dist-last").value = "32.0";
+    document.getElementById("manual-ratio-median").value = "1.8";
+    document.getElementById("manual-repeat-retailer").checked = false;
+    document.getElementById("manual-used-chip").checked = false;
+    document.getElementById("manual-used-pin").checked = false;
+    document.getElementById("manual-online-order").checked = true;
+    document.getElementById("manual-vel-1h").value = "2";
+    document.getElementById("manual-vel-24h").value = "3";
+    // Simulate user will pass 2FA
+    document.getElementById("manual-override-2fa").value = "1";
+  } else if (type === "luxury") {
+    document.getElementById("manual-amount").value = "4850.00";
+    document.getElementById("manual-merchant").value = "5";
+    document.getElementById("manual-dist-home").value = "145.0";
+    document.getElementById("manual-dist-last").value = "95.0";
+    document.getElementById("manual-ratio-median").value = "5.5";
+    document.getElementById("manual-repeat-retailer").checked = false;
+    document.getElementById("manual-used-chip").checked = false;
+    document.getElementById("manual-used-pin").checked = false;
+    document.getElementById("manual-online-order").checked = true;
+    document.getElementById("manual-vel-1h").value = "3";
+    document.getElementById("manual-vel-24h").value = "5";
+  } else if (type === "fraud") {
+    document.getElementById("manual-amount").value = "890.00";
+    document.getElementById("manual-merchant").value = "2";
+    document.getElementById("manual-dist-home").value = "180.0";
+    document.getElementById("manual-dist-last").value = "120.0";
+    document.getElementById("manual-ratio-median").value = "4.2";
+    document.getElementById("manual-repeat-retailer").checked = false;
+    document.getElementById("manual-used-chip").checked = false;
+    document.getElementById("manual-used-pin").checked = false;
+    document.getElementById("manual-online-order").checked = true;
+    document.getElementById("manual-vel-1h").value = "6";
+    document.getElementById("manual-vel-24h").value = "14";
+    // Fraudster fails 2FA
+    document.getElementById("manual-override-2fa").value = "0";
+    document.getElementById("manual-override-device").value = "0.12";
+    document.getElementById("manual-override-sim").value = "3";
+  }
+
+  // Auto-submit the scenario
+  submitManualTransaction(null);
+}
+
+function resetManualForm() {
+  document.getElementById("form-manual-tx").reset();
+  document.getElementById("manual-placeholder").classList.remove("hidden");
+  document.getElementById("manual-active-result").classList.add("hidden");
+  document.getElementById("manual-result-badge").innerText = "Awaiting Evaluation";
+  document.getElementById("manual-result-badge").className = "px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400";
+}
+
+async function submitManualTransaction(e) {
+  if (e) e.preventDefault();
+
+  const submitBtn = document.getElementById("btn-manual-submit");
+  submitBtn.disabled = true;
+
+  try {
+    const txId = document.getElementById("manual-tx-id").value || `CUSTOM-${Date.now()}`;
+    const amount = parseFloat(document.getElementById("manual-amount").value);
+    const merchant = parseInt(document.getElementById("manual-merchant").value);
+    const distHome = parseFloat(document.getElementById("manual-dist-home").value) || 0;
+    const distLast = parseFloat(document.getElementById("manual-dist-last").value) || 0;
+    const ratioMedian = parseFloat(document.getElementById("manual-ratio-median").value) || 1.0;
+    const repeat = document.getElementById("manual-repeat-retailer").checked ? 1 : 0;
+    const chip = document.getElementById("manual-used-chip").checked ? 1 : 0;
+    const pin = document.getElementById("manual-used-pin").checked ? 1 : 0;
+    const online = document.getElementById("manual-online-order").checked ? 1 : 0;
+    const vel1h = parseInt(document.getElementById("manual-vel-1h").value) || 0;
+    const vel24h = parseInt(document.getElementById("manual-vel-24h").value) || 0;
+
+    // Overrides
+    const override2faVal = document.getElementById("manual-override-2fa").value;
+    const override2fa = override2faVal !== "" ? parseInt(override2faVal) : null;
+
+    const overrideDevVal = document.getElementById("manual-override-device").value;
+    const overrideDev = overrideDevVal !== "" ? parseFloat(overrideDevVal) : null;
+
+    const overrideSimVal = document.getElementById("manual-override-sim").value;
+    const overrideSim = overrideSimVal !== "" ? parseInt(overrideSimVal) : null;
+
+    const txPayload = {
+      transaction_id: txId,
+      amount: amount,
+      merchant_category: merchant,
+      distance_from_home: distHome,
+      distance_from_last_tx: distLast,
+      ratio_to_median_price: ratioMedian,
+      repeat_retailer: repeat,
+      used_chip: chip,
+      used_pin: pin,
+      online_order: online,
+      velocity_1h: vel1h,
+      velocity_24h: vel24h,
+      device_trust_score: overrideDev,
+      carrier_sim_swap_age_days: overrideSim,
+      two_factor_auth_success: override2fa,
+    };
+
+    const res = await fetch("/api/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(txPayload),
+    });
+
+    if (!res.ok) throw new Error("Evaluation request failed");
+    const packet = await res.json();
+
+    renderManualResult(packet);
+
+    // If escalated to HITL queue, refresh queue
+    if (packet.escalation_tier === 2) {
+      refreshQueue();
+    }
+  } catch (err) {
+    console.error("Error evaluating manual transaction:", err);
+    alert("Evaluation error: " + err.message);
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+function renderManualResult(packet) {
+  document.getElementById("manual-placeholder").classList.add("hidden");
+  document.getElementById("manual-active-result").classList.remove("hidden");
+
+  // Badge in header
+  const badge = document.getElementById("manual-result-badge");
+  badge.innerText = `Tier ${packet.escalation_tier} Evaluated`;
+  badge.className = "px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30";
+
+  // Action Banner
+  const banner = document.getElementById("manual-action-banner");
+  const actionText = document.getElementById("manual-action-text");
+  const tierText = document.getElementById("manual-tier-text");
+
+  actionText.innerText = packet.final_action;
+  tierText.innerText = `Tier ${packet.escalation_tier}: ${packet.escalation_tier === 0 ? 'Autonomous' : packet.escalation_tier === 1 ? 'Dynamic Step-Up' : 'Human Escalation'}`;
+
+  if (packet.final_action.startsWith("APPROVE")) {
+    banner.className = "p-4 rounded-xl border border-emerald-500/40 bg-emerald-950/40 flex items-center justify-between";
+    actionText.className = "text-base font-bold text-emerald-300 mt-0.5";
+  } else if (packet.final_action.startsWith("DECLINE")) {
+    banner.className = "p-4 rounded-xl border border-rose-500/40 bg-rose-950/40 flex items-center justify-between";
+    actionText.className = "text-base font-bold text-rose-300 mt-0.5";
+  } else {
+    banner.className = "p-4 rounded-xl border border-purple-500/40 bg-purple-950/40 flex items-center justify-between";
+    actionText.className = "text-base font-bold text-purple-300 mt-0.5";
+  }
+
+  // Key Scores
+  document.getElementById("manual-p-initial").innerText = `${(packet.p_fraud_initial * 100).toFixed(1)}%`;
+  document.getElementById("manual-p-final").innerText = `${(packet.p_fraud_final * 100).toFixed(1)}%`;
+
+  const confEl = document.getElementById("manual-conformal-set");
+  confEl.innerText = `[${packet.conformal_set.join(", ")}]`;
+  confEl.className = packet.conformal_set.length > 1 ? "text-amber-400 font-bold text-sm" : packet.conformal_set[0] === "Fraud" ? "text-rose-400 font-bold text-sm" : "text-emerald-400 font-bold text-sm";
+
+  document.getElementById("manual-uq-scores").innerText = `${packet.aleatoric_uncertainty.toFixed(2)} / ${packet.epistemic_uncertainty.toFixed(2)}`;
+
+  // Tier 1 dynamic evidence
+  const tier1Box = document.getElementById("manual-tier1-details");
+  if (packet.evidence_collected) {
+    tier1Box.classList.remove("hidden");
+    const s2fa = packet.evidence_collected.two_factor_auth_success === 1 ? "Passed (SMS 2FA)" : "Failed / Timeout";
+    const el2fa = document.getElementById("manual-ev-2fa");
+    el2fa.innerText = s2fa;
+    el2fa.className = packet.evidence_collected.two_factor_auth_success === 1 ? "font-bold text-emerald-400" : "font-bold text-rose-400";
+
+    document.getElementById("manual-ev-device").innerText = packet.evidence_collected.device_trust_score.toFixed(2);
+    document.getElementById("manual-ev-sim").innerText = `${packet.evidence_collected.carrier_sim_swap_age_days} days`;
+  } else {
+    tier1Box.classList.add("hidden");
+  }
+
+  // Feature attributions
+  const attrList = document.getElementById("manual-attributions-list");
+  attrList.innerHTML = "";
+  const attrs = Object.entries(packet.feature_attributions || {}).slice(0, 4);
+  attrs.forEach(([name, pct]) => {
+    const item = document.createElement("div");
+    item.innerHTML = `
+      <div class="flex justify-between text-[11px] text-slate-400 mb-0.5">
+        <span>${name.replace(/_/g, ' ')}</span>
+        <span class="font-mono text-slate-200">${pct}%</span>
+      </div>
+      <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+        <div class="bg-indigo-500 h-1.5 rounded-full" style="width: ${Math.min(100, pct * 2)}%"></div>
+      </div>
+    `;
+    attrList.appendChild(item);
+  });
+
+  // Rationale
+  document.getElementById("manual-rationale-text").innerText = packet.investigator_rationale || "Autonomous evaluation complete.";
+}
+
+// -------------------------------------------------------------
+// BATCH CSV UPLOAD & TEMPLATE DOWNLOAD
+// -------------------------------------------------------------
+
+function downloadSampleCsv() {
+  const csvContent = 
+`transaction_id,amount,merchant_category,distance_from_home,distance_from_last_tx,ratio_to_median_price,repeat_retailer,used_chip,used_pin,online_order,velocity_1h,velocity_24h,device_trust_score,two_factor_auth_success
+CSV-TX-101,24.50,1,1.5,0.2,0.8,1,1,1,0,0,1,0.95,1
+CSV-TX-102,320.00,3,48.0,25.0,1.9,0,0,0,1,2,4,0.72,1
+CSV-TX-103,4250.00,5,150.0,80.0,4.8,0,0,0,1,3,6,0.35,0
+CSV-TX-104,89.00,2,12.0,3.0,1.2,1,1,0,0,1,2,0.88,1
+CSV-TX-105,950.00,2,210.0,140.0,5.1,0,0,0,1,5,12,0.15,0`;
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", "sample_transactions.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+async function uploadCsvFile() {
+  const fileInput = document.getElementById("input-csv-file");
+  if (!fileInput.files || fileInput.files.length === 0) {
+    alert("Please select a CSV file first!");
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const btn = document.getElementById("btn-upload-csv");
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Processing...</span>`;
+
+  try {
+    const res = await fetch("/api/upload-csv", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) throw new Error("CSV upload failed");
+    const data = await res.json();
+
+    document.getElementById("csv-results-container").classList.remove("hidden");
+    document.getElementById("csv-summary-count").innerText = data.processed_count;
+
+    const tbody = document.getElementById("csv-table-body");
+    tbody.innerHTML = "";
+
+    data.results.forEach((pkt) => {
+      const row = document.createElement("tr");
+      row.className = "hover:bg-slate-800/40";
+      
+      let badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-bold">${pkt.final_action}</span>`;
+      if (pkt.final_action.startsWith("APPROVE")) {
+        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold">${pkt.final_action}</span>`;
+      } else if (pkt.final_action.startsWith("DECLINE")) {
+        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold">${pkt.final_action}</span>`;
+      } else {
+        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-bold">${pkt.final_action}</span>`;
+      }
+
+      row.innerHTML = `
+        <td class="px-3 py-2 font-bold text-white">${pkt.transaction_id}</td>
+        <td class="px-3 py-2 text-slate-200 font-bold">$${pkt.amount.toFixed(2)}</td>
+        <td class="px-3 py-2 text-cyan-400">${(pkt.p_fraud_final * 100).toFixed(1)}%</td>
+        <td class="px-3 py-2">[${pkt.conformal_set.join(", ")}]</td>
+        <td class="px-3 py-2 text-slate-400">Tier ${pkt.escalation_tier}</td>
+        <td class="px-3 py-2">${badge}</td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    refreshQueue();
+  } catch (err) {
+    console.error("Error uploading CSV:", err);
+    alert("Error processing CSV: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="upload" class="w-4 h-4"></i><span>Process CSV Batch</span>`;
+    if (window.lucide) lucide.createIcons();
+  }
+}
+

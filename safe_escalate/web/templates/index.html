@@ -37,6 +37,10 @@
           <i data-lucide="play-circle" class="w-4 h-4"></i>
           <span>Live Stream</span>
         </button>
+        <button onclick="switchTab('manual')" id="tab-btn-manual" class="tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex items-center space-x-1.5">
+          <i data-lucide="edit-3" class="w-4 h-4"></i>
+          <span>Manual Input Tester</span>
+        </button>
         <button onclick="switchTab('workbench')" id="tab-btn-workbench" class="tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex items-center space-x-1.5 relative">
           <i data-lucide="users" class="w-4 h-4"></i>
           <span>HITL Queue</span>
@@ -210,6 +214,320 @@
               <tr class="text-slate-500 text-center">
                 <td colspan="8" class="py-8">Click "Next Transaction" or "Auto Stream" to start processing live transactions.</td>
               </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- TAB: MANUAL TRANSACTION INPUT TESTER                     -->
+    <!-- ========================================================= -->
+    <div id="tab-manual" class="tab-content hidden space-y-6">
+      
+      <!-- Top Presets Row -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="edit-3" class="w-5 h-5 text-indigo-400"></i>
+              <span>Manual Transaction Tester & Scenario Simulator</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Enter your own transaction parameters or load pre-configured scenarios to test the 3-tier cascade.</p>
+          </div>
+          <span class="text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-lg font-mono">Interactive Evaluation</span>
+        </div>
+
+        <div>
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Test Scenarios (1-Click Fill)</div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button onclick="loadScenario('grocery')" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 rounded-xl text-left transition group">
+              <div class="flex items-center space-x-2">
+                <span class="text-base">🛒</span>
+                <span class="text-xs font-bold text-white group-hover:text-emerald-300">Routine Groceries</span>
+              </div>
+              <div class="text-[11px] text-slate-500 mt-1">$28.50 &bull; Home 2mi &bull; Chip &bull; Repeat</div>
+              <span class="inline-block mt-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">Expect: Tier 0 Approve</span>
+            </button>
+
+            <button onclick="loadScenario('traveler')" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 rounded-xl text-left transition group">
+              <div class="flex items-center space-x-2">
+                <span class="text-base">✈️</span>
+                <span class="text-xs font-bold text-white group-hover:text-amber-300">Borderline Traveler</span>
+              </div>
+              <div class="text-[11px] text-slate-500 mt-1">$340.00 &bull; Dist 55mi &bull; Online</div>
+              <span class="inline-block mt-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">Expect: Tier 1 Step-Up</span>
+            </button>
+
+            <button onclick="loadScenario('luxury')" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 rounded-xl text-left transition group">
+              <div class="flex items-center space-x-2">
+                <span class="text-base">💎</span>
+                <span class="text-xs font-bold text-white group-hover:text-purple-300">High-Value Outlier</span>
+              </div>
+              <div class="text-[11px] text-slate-500 mt-1">$4,850.00 &bull; Novel Pattern</div>
+              <span class="inline-block mt-2 text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">Expect: Tier 2 HITL</span>
+            </button>
+
+            <button onclick="loadScenario('fraud')" class="p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/40 rounded-xl text-left transition group">
+              <div class="flex items-center space-x-2">
+                <span class="text-base">🚨</span>
+                <span class="text-xs font-bold text-white group-hover:text-rose-300">Account Takeover</span>
+              </div>
+              <div class="text-[11px] text-slate-500 mt-1">$890.00 &bull; Burst Velocity 6 &bull; Online</div>
+              <span class="inline-block mt-2 text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono">Expect: Step-Up Decline</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Input & Result Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Form Column (7 cols) -->
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+          <h3 class="text-sm font-bold text-white flex items-center space-x-2 border-b border-slate-800 pb-3">
+            <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i>
+            <span>Transaction Feature Parameters</span>
+          </h3>
+
+          <form id="form-manual-tx" onsubmit="submitManualTransaction(event)" class="space-y-4 text-xs">
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1">Transaction ID</label>
+                <input type="text" id="manual-tx-id" value="CUSTOM-TX-001" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1">Amount ($ USD) *</label>
+                <input type="number" step="0.01" id="manual-amount" value="150.00" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold focus:border-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1">Merchant Category</label>
+                <select id="manual-merchant" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-indigo-500 focus:outline-none">
+                  <option value="1">1: Grocery / Supermarket</option>
+                  <option value="2">2: Electronics & Gadgets</option>
+                  <option value="3">3: Travel & Airlines</option>
+                  <option value="4">4: Restaurants & Dining</option>
+                  <option value="5">5: Luxury Goods & Jewelry</option>
+                  <option value="6">6: Fuel & Gas Station</option>
+                  <option value="0">0: General Retail</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1">Distance from Home (mi)</label>
+                <input type="number" step="0.1" id="manual-dist-home" value="5.2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1">Distance from Last Tx (mi)</label>
+                <input type="number" step="0.1" id="manual-dist-last" value="1.0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1">Ratio to Median Price</label>
+                <input type="number" step="0.1" id="manual-ratio-median" value="1.1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-indigo-500 focus:outline-none">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="manual-repeat-retailer" checked class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700">
+                <span class="text-slate-300">Repeat Retailer</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="manual-used-chip" checked class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700">
+                <span class="text-slate-300">Used Chip</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="manual-used-pin" class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700">
+                <span class="text-slate-300">Used PIN</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="manual-online-order" class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700">
+                <span class="text-slate-300">Online Order</span>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1">Velocity (Last 1 Hour)</label>
+                <input type="number" id="manual-vel-1h" value="1" min="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1">Velocity (Last 24 Hours)</label>
+                <input type="number" id="manual-vel-24h" value="2" min="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-indigo-500 focus:outline-none">
+              </div>
+            </div>
+
+            <!-- Optional Override: Secondary Evidence -->
+            <div class="border-t border-slate-800 pt-3">
+              <button type="button" onclick="toggleAdvancedTier2()" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center space-x-1">
+                <i data-lucide="chevron-right" id="icon-advanced-tier2" class="w-3.5 h-3.5 transition"></i>
+                <span>Advanced: Dynamic Step-Up Overrides (Optional)</span>
+              </button>
+              
+              <div id="panel-advanced-tier2" class="hidden mt-3 p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+                <p class="text-[11px] text-slate-500">By default, SafeEscalate simulates live 2FA and device telemetry automatically. You can explicitly force values here:</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-slate-400 mb-1">2FA Challenge Result</label>
+                    <select id="manual-override-2fa" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white">
+                      <option value="">Auto-Simulate</option>
+                      <option value="1">Force Pass (1)</option>
+                      <option value="0">Force Fail (0)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-slate-400 mb-1">Device Trust Score (0-1)</label>
+                    <input type="number" step="0.05" min="0" max="1" id="manual-override-device" placeholder="Auto" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono">
+                  </div>
+                  <div>
+                    <label class="block text-slate-400 mb-1">SIM Swap Age (Days)</label>
+                    <input type="number" id="manual-override-sim" placeholder="Auto" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-2 flex items-center space-x-3">
+              <button type="submit" id="btn-manual-submit" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/20">
+                <i data-lucide="zap" class="w-4 h-4"></i>
+                <span>Evaluate Transaction Through Cascade</span>
+              </button>
+              <button type="button" onclick="resetManualForm()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium transition">
+                Reset
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Result Column (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col">
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex-1 flex flex-col space-y-4" id="manual-result-container">
+            
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                <i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i>
+                <span>Cascade Decision Dossier</span>
+              </h3>
+              <span id="manual-result-badge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400">Awaiting Evaluation</span>
+            </div>
+
+            <!-- Placeholder State -->
+            <div id="manual-placeholder" class="my-auto py-12 text-center text-slate-500 space-y-2">
+              <i data-lucide="arrow-left-circle" class="w-10 h-10 mx-auto text-slate-700"></i>
+              <p class="text-xs">Select a scenario above or enter transaction details to see the real-time uncertainty quantification and escalation path.</p>
+            </div>
+
+            <!-- Active Result Content (Hidden Initially) -->
+            <div id="manual-active-result" class="hidden space-y-4 text-xs">
+              
+              <!-- Action Card -->
+              <div id="manual-action-banner" class="p-4 rounded-xl border flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Final Action</div>
+                  <div class="text-base font-bold text-white mt-0.5" id="manual-action-text">--</div>
+                </div>
+                <div class="text-right">
+                  <div class="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Escalation Tier</div>
+                  <div class="text-sm font-bold text-indigo-400 font-mono" id="manual-tier-text">--</div>
+                </div>
+              </div>
+
+              <!-- Key Metrics Grid -->
+              <div class="grid grid-cols-2 gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono">
+                <div>
+                  <div class="text-slate-400 text-[10px]">Initial Model Score</div>
+                  <div class="text-cyan-400 font-bold text-sm" id="manual-p-initial">--%</div>
+                </div>
+                <div>
+                  <div class="text-slate-400 text-[10px]">Post-Evidence Score</div>
+                  <div class="text-indigo-400 font-bold text-sm" id="manual-p-final">--%</div>
+                </div>
+                <div>
+                  <div class="text-slate-400 text-[10px]">Conformal Set &Gamma;<sub>0.05</sub></div>
+                  <div class="font-bold text-sm" id="manual-conformal-set">--</div>
+                </div>
+                <div>
+                  <div class="text-slate-400 text-[10px]">Uncertainty (Aleatoric / Epistemic)</div>
+                  <div class="text-slate-300 font-bold text-sm" id="manual-uq-scores">-- / --</div>
+                </div>
+              </div>
+
+              <!-- Tier 1 Dynamic Evidence Card (if triggered) -->
+              <div id="manual-tier1-details" class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 hidden font-mono">
+                <div class="text-amber-400 text-[11px] font-bold uppercase tracking-wider">Dynamic Micro-Evidence Queried</div>
+                <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
+                  <div>2FA Result: <span id="manual-ev-2fa" class="font-bold">--</span></div>
+                  <div>Device Trust: <span id="manual-ev-device" class="font-bold">--</span></div>
+                  <div>SIM Swap Age: <span id="manual-ev-sim" class="font-bold">--</span></div>
+                  <div>Query Fee: <span class="text-emerald-400 font-bold">$0.20</span></div>
+                </div>
+              </div>
+
+              <!-- Feature Attributions -->
+              <div>
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Top Feature Deviation Drivers</div>
+                <div id="manual-attributions-list" class="space-y-1.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+              <!-- Rationale -->
+              <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800/80 text-[11px] text-slate-300">
+                <span class="font-bold text-indigo-400">System Rationale:</span>
+                <span id="manual-rationale-text" class="italic">--</span>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Batch CSV Upload Dropzone -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i>
+              <span>Batch CSV Transaction Processor</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Upload a CSV file of transactions to process them in bulk through the SafeEscalate cascade.</p>
+          </div>
+          <button onclick="downloadSampleCsv()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition flex items-center space-x-1.5">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download Sample CSV Template</span>
+          </button>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center gap-3">
+          <input type="file" id="input-csv-file" accept=".csv" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+          <button onclick="uploadCsvFile()" id="btn-upload-csv" class="w-full sm:w-auto px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-lg shadow-emerald-600/20 whitespace-nowrap">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <span>Process CSV Batch</span>
+          </button>
+        </div>
+
+        <!-- CSV Results Table -->
+        <div id="csv-results-container" class="hidden overflow-x-auto pt-2">
+          <div class="text-xs font-bold text-slate-300 mb-2">Processed Batch Summary: <span id="csv-summary-count" class="text-emerald-400 font-mono">0</span> transactions processed</div>
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+              <tr>
+                <th class="px-3 py-2">Tx ID</th>
+                <th class="px-3 py-2">Amount</th>
+                <th class="px-3 py-2">P(Fraud)</th>
+                <th class="px-3 py-2">Conformal Set</th>
+                <th class="px-3 py-2">Escalation Tier</th>
+                <th class="px-3 py-2">Final Action</th>
+              </tr>
+            </thead>
+            <tbody id="csv-table-body" class="divide-y divide-slate-800 font-mono text-[11px]">
+              <!-- Dynamically populated -->
             </tbody>
           </table>
         </div>

@@ -2,7 +2,7 @@
 FastAPI application serving REST endpoints and the interactive SafeEscalate dashboard.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, Field
@@ -95,6 +95,59 @@ async def process_transaction(tx: Transaction):
         STATE["queue_manager"].enqueue(packet, tx)
 
     return packet
+
+
+@app.post("/api/upload-csv")
+async def upload_transactions_csv(file: UploadFile = File(...)):
+    """Accepts a user-provided CSV file of transactions and processes each through the cascade."""
+    if STATE["engine"] is None:
+        raise HTTPException(status_code=503, detail="System models not yet initialized.")
+
+    import csv
+    import io
+
+    contents = await file.read()
+    try:
+        decoded = contents.decode("utf-8")
+    except UnicodeDecodeError:
+        decoded = contents.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(decoded))
+    results = []
+    engine = STATE["engine"]
+
+    for row_idx, row in enumerate(reader):
+        try:
+            tx = Transaction(
+                transaction_id=row.get("transaction_id", f"USER-TX-{1000 + row_idx}"),
+                amount=float(row.get("amount", 50.0)),
+                merchant_category=int(row.get("merchant_category", 1)),
+                distance_from_home=float(row.get("distance_from_home", 5.0)),
+                distance_from_last_tx=float(row.get("distance_from_last_tx", 1.0)),
+                ratio_to_median_price=float(row.get("ratio_to_median_price", 1.0)),
+                repeat_retailer=int(row.get("repeat_retailer", 1)),
+                used_chip=int(row.get("used_chip", 1)),
+                used_pin=int(row.get("used_pin", 0)),
+                online_order=int(row.get("online_order", 0)),
+                velocity_1h=int(row.get("velocity_1h", 0)),
+                velocity_24h=int(row.get("velocity_24h", 1)),
+                device_trust_score=float(row["device_trust_score"]) if "device_trust_score" in row and row["device_trust_score"] != "" else None,
+                carrier_sim_swap_age_days=int(row["carrier_sim_swap_age_days"]) if "carrier_sim_swap_age_days" in row and row["carrier_sim_swap_age_days"] != "" else None,
+                ip_country_match=int(row["ip_country_match"]) if "ip_country_match" in row and row["ip_country_match"] != "" else None,
+                two_factor_auth_success=int(row["two_factor_auth_success"]) if "two_factor_auth_success" in row and row["two_factor_auth_success"] != "" else None,
+                is_fraud=int(row["is_fraud"]) if "is_fraud" in row and row["is_fraud"] != "" else None,
+            )
+            packet = engine.process_transaction(tx)
+            if packet.escalation_tier == 2:
+                STATE["queue_manager"].enqueue(packet, tx)
+            results.append(packet.model_dump())
+        except Exception as e:
+            continue
+
+    return {
+        "processed_count": len(results),
+        "results": results,
+    }
 
 
 @app.get("/api/simulate/next", response_model=DecisionPacket)
