@@ -498,19 +498,34 @@
             </h3>
             <p class="text-xs text-slate-400 mt-0.5">Upload a CSV file of transactions to process them in bulk through the SafeEscalate cascade.</p>
           </div>
-          <button onclick="downloadSampleCsv()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition flex items-center space-x-1.5">
-            <i data-lucide="download" class="w-3.5 h-3.5"></i>
-            <span>Download Sample CSV Template</span>
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="runSampleCsvDirectly()" id="btn-quick-run-csv" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-emerald-600/20">
+              <i data-lucide="play-circle" class="w-4 h-4"></i>
+              <span>⚡ 1-Click Quick Run (test_transactions.csv)</span>
+            </button>
+            <a href="/api/download/test-csv" download class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 shadow-md shadow-indigo-600/20">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Download Test CSV (10 Cases)</span>
+            </a>
+            <button onclick="downloadSampleCsv()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition flex items-center space-x-1.5">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              <span>Template Only</span>
+            </button>
+          </div>
         </div>
 
+        <!-- File Picker Input -->
         <div class="flex flex-col sm:flex-row items-center gap-3">
-          <input type="file" id="input-csv-file" accept=".csv" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+          <input type="file" id="input-csv-file" accept=".csv" onchange="onCsvFileSelected(event)" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
           <button onclick="uploadCsvFile()" id="btn-upload-csv" class="w-full sm:w-auto px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-lg shadow-emerald-600/20 whitespace-nowrap">
             <i data-lucide="upload" class="w-4 h-4"></i>
             <span>Process CSV Batch</span>
           </button>
         </div>
+
+        <!-- Selected File Indicator & Status Banner -->
+        <div id="csv-file-info" class="hidden text-xs text-slate-300 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800"></div>
+        <div id="csv-status-box" class="hidden px-4 py-3 rounded-xl border text-xs transition font-sans"></div>
 
         <!-- CSV Results Table -->
         <div id="csv-results-container" class="hidden overflow-x-auto pt-2">
@@ -784,6 +799,6 @@
   </footer>
 
   <!-- Application Logic -->
-  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/dashboard.js?v=2.2"></script>
 </body>
 </html>

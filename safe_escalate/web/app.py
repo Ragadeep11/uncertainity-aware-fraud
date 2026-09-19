@@ -306,6 +306,19 @@ async def upload_transactions_csv(file: UploadFile = File(...)):
     }
 
 
+@app.get("/api/download/test-csv")
+async def download_test_csv():
+    """Direct download endpoint for test_transactions.csv."""
+    csv_path = Path(__file__).resolve().parent.parent.parent / "test_transactions.csv"
+    if not csv_path.exists():
+        raise HTTPException(status_code=404, detail="test_transactions.csv not found")
+    return FileResponse(
+        str(csv_path),
+        media_type="text/csv",
+        filename="test_transactions.csv",
+    )
+
+
 @app.get("/api/simulate/next", response_model=DecisionPacket)
 async def simulate_next_stream_transaction():
     """Streams the next transaction from the holdout set or generates an ad-hoc case."""

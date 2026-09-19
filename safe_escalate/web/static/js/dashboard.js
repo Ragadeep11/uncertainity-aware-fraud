@@ -759,20 +759,95 @@ CSV-TX-105,950.00,2,210.0,140.0,5.1,0,0,0,1,5,12,0.15,0`;
   document.body.removeChild(link);
 }
 
+function onCsvFileSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  const fileInfo = document.getElementById("csv-file-info");
+  const statusBox = document.getElementById("csv-status-box");
+  if (statusBox) statusBox.classList.add("hidden");
+
+  if (file) {
+    if (fileInfo) {
+      fileInfo.classList.remove("hidden");
+      fileInfo.innerHTML = `
+        <div class="flex items-center space-x-2 text-emerald-400">
+          <i data-lucide="file-check" class="w-4 h-4"></i>
+          <span>Selected: <b class="text-white">${file.name}</b> (${(file.size / 1024).toFixed(1)} KB) &bull; Ready to process</span>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+  } else {
+    if (fileInfo) fileInfo.classList.add("hidden");
+  }
+}
+
+async function runSampleCsvDirectly() {
+  const statusBox = document.getElementById("csv-status-box");
+  const btn = document.getElementById("btn-quick-run-csv");
+
+  if (statusBox) {
+    statusBox.classList.remove("hidden", "bg-rose-950/60", "border-rose-800", "text-rose-300", "bg-emerald-950/60", "border-emerald-800", "text-emerald-300");
+    statusBox.classList.add("bg-indigo-950/60", "border-indigo-800", "text-indigo-300");
+    statusBox.innerHTML = `<div class="flex items-center space-x-2"><i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Fetching test_transactions.csv from server...</span></div>`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/download/test-csv");
+    if (!res.ok) throw new Error("Could not download test_transactions.csv from server.");
+    const blob = await res.blob();
+    const file = new File([blob], "test_transactions.csv", { type: "text/csv" });
+    await processCsvFileObject(file);
+  } catch (err) {
+    console.error("Direct sample run error:", err);
+    if (statusBox) {
+      statusBox.classList.remove("hidden", "bg-indigo-950/60", "border-indigo-800", "text-indigo-300", "bg-emerald-950/60", "border-emerald-800", "text-emerald-300");
+      statusBox.classList.add("bg-rose-950/60", "border-rose-800", "text-rose-300");
+      statusBox.innerHTML = `<div class="flex items-center space-x-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i><span>Failed to load test CSV: ${err.message}</span></div>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function uploadCsvFile() {
   const fileInput = document.getElementById("input-csv-file");
+  const statusBox = document.getElementById("csv-status-box");
+
   if (!fileInput.files || fileInput.files.length === 0) {
-    alert("Please select a CSV file first!");
+    if (statusBox) {
+      statusBox.classList.remove("hidden", "bg-indigo-950/60", "border-indigo-800", "text-indigo-300", "bg-emerald-950/60", "border-emerald-800", "text-emerald-300");
+      statusBox.classList.add("bg-rose-950/60", "border-rose-800", "text-rose-300");
+      statusBox.innerHTML = `<div class="flex items-center space-x-2"><i data-lucide="alert-circle" class="w-4 h-4 text-rose-400"></i><span>Please select a CSV file first, or click <b>"⚡ 1-Click Quick Run"</b> above!</span></div>`;
+      if (window.lucide) lucide.createIcons();
+    }
+    alert("Please select a CSV file first (or click the '⚡ 1-Click Quick Run' button)!");
     return;
   }
 
-  const file = fileInput.files[0];
+  await processCsvFileObject(fileInput.files[0]);
+}
+
+async function processCsvFileObject(file) {
+  const statusBox = document.getElementById("csv-status-box");
+  const btn = document.getElementById("btn-upload-csv");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Processing CSV...</span>`;
+  }
+  if (window.lucide) lucide.createIcons();
+
+  if (statusBox) {
+    statusBox.classList.remove("hidden", "bg-rose-950/60", "border-rose-800", "text-rose-300", "bg-emerald-950/60", "border-emerald-800", "text-emerald-300");
+    statusBox.classList.add("bg-indigo-950/60", "border-indigo-800", "text-indigo-300");
+    statusBox.innerHTML = `<div class="flex items-center space-x-2"><i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Evaluating <b>${file.name}</b> through SafeEscalate 3-tier cascade...</span></div>`;
+    if (window.lucide) lucide.createIcons();
+  }
+
   const formData = new FormData();
   formData.append("file", file);
-
-  const btn = document.getElementById("btn-upload-csv");
-  btn.disabled = true;
-  btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>Processing CSV...</span>`;
 
   try {
     const res = await fetch("/api/upload-csv", {
@@ -782,64 +857,98 @@ async function uploadCsvFile() {
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(errData.detail || `Upload failed (Status ${res.status})`);
+      throw new Error(errData.detail || `Upload failed with HTTP ${res.status}`);
     }
 
     const data = await res.json();
 
     if (data.processed_count === 0) {
-      alert("No valid rows could be parsed from the CSV file. Please make sure the CSV has headers and an 'amount' column.");
-      return;
+      throw new Error("No valid transactions could be parsed. Check column names (expected 'amount', 'velocity_1h', etc.).");
     }
 
     const t0 = data.tier_breakdown ? data.tier_breakdown[0] || 0 : 0;
     const t1 = data.tier_breakdown ? data.tier_breakdown[1] || 0 : 0;
     const t2 = data.tier_breakdown ? data.tier_breakdown[2] || 0 : 0;
 
-    document.getElementById("csv-results-container").classList.remove("hidden");
-    document.getElementById("csv-summary-count").innerHTML = `
-      <span class="text-emerald-400 font-bold font-mono">${data.processed_count}</span> transactions processed 
-      <span class="text-slate-400 text-[11px] font-normal">
-        (Tier 0 Autonomous: <b class="text-emerald-400">${t0}</b>, 
-         Tier 1 Step-Up: <b class="text-amber-400">${t1}</b>, 
-         Tier 2 Escalated: <b class="text-purple-400">${t2}</b>)
-      </span>
-    `;
+    if (statusBox) {
+      statusBox.classList.remove("hidden", "bg-indigo-950/60", "border-indigo-800", "text-indigo-300", "bg-rose-950/60", "border-rose-800", "text-rose-300");
+      statusBox.classList.add("bg-emerald-950/60", "border-emerald-800", "text-emerald-300");
+      statusBox.innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+            <span class="font-bold">Successfully evaluated ${data.processed_count} transactions from ${file.name}!</span>
+          </div>
+          <div class="font-mono text-[11px] space-x-2">
+            <span class="text-emerald-400">Tier 0 Auto: <b>${t0}</b></span> &bull; 
+            <span class="text-amber-400">Tier 1 Step-Up: <b>${t1}</b></span> &bull; 
+            <span class="text-purple-400">Tier 2 Escalated: <b>${t2}</b></span>
+          </div>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    const resultsContainer = document.getElementById("csv-results-container");
+    if (resultsContainer) resultsContainer.classList.remove("hidden");
+
+    const countElem = document.getElementById("csv-summary-count");
+    if (countElem) countElem.innerText = `${data.processed_count} transactions evaluated (${t0} Auto, ${t1} Step-Up, ${t2} Escalated)`;
 
     const tbody = document.getElementById("csv-table-body");
-    tbody.innerHTML = "";
+    if (tbody) {
+      tbody.innerHTML = "";
 
-    data.results.forEach((pkt) => {
-      const row = document.createElement("tr");
-      row.className = "hover:bg-slate-800/40";
-      
-      let badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-bold">${pkt.final_action}</span>`;
-      if (pkt.final_action.startsWith("APPROVE")) {
-        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">${pkt.final_action}</span>`;
-      } else if (pkt.final_action.startsWith("DECLINE")) {
-        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">${pkt.final_action}</span>`;
-      } else {
-        badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 font-bold">ESCALATE HITL</span>`;
-      }
+      data.results.forEach((pkt) => {
+        const row = document.createElement("tr");
+        row.className = "hover:bg-slate-800/40 transition";
+        
+        let badge = `<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-bold">${pkt.final_action}</span>`;
+        if (pkt.final_action.startsWith("APPROVE")) {
+          badge = `<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">${pkt.final_action}</span>`;
+        } else if (pkt.final_action.startsWith("DECLINE")) {
+          badge = `<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">${pkt.final_action}</span>`;
+        } else {
+          badge = `<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 font-bold">ESCALATE HITL</span>`;
+        }
 
-      row.innerHTML = `
-        <td class="px-3 py-2 font-bold text-white">${pkt.transaction_id}</td>
-        <td class="px-3 py-2 text-slate-200 font-bold">$${pkt.amount.toFixed(2)}</td>
-        <td class="px-3 py-2 text-cyan-400">${(pkt.p_fraud_final * 100).toFixed(1)}%</td>
-        <td class="px-3 py-2">[${pkt.conformal_set.join(", ")}]</td>
-        <td class="px-3 py-2 text-slate-400">Tier ${pkt.escalation_tier}</td>
-        <td class="px-3 py-2">${badge}</td>
-      `;
-      tbody.appendChild(row);
-    });
+        let tierBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Tier 0 (Auto)</span>`;
+        if (pkt.escalation_tier === 1) {
+          tierBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20">Tier 1 (Step-Up)</span>`;
+        } else if (pkt.escalation_tier === 2) {
+          tierBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20">Tier 2 (HITL)</span>`;
+        }
+
+        row.innerHTML = `
+          <td class="px-3 py-2 font-bold text-white">${pkt.transaction_id}</td>
+          <td class="px-3 py-2 text-slate-200 font-bold">$${pkt.amount.toFixed(2)}</td>
+          <td class="px-3 py-2 text-cyan-400 font-semibold">${(pkt.p_fraud_final * 100).toFixed(1)}%</td>
+          <td class="px-3 py-2 font-mono text-[11px]">${pkt.conformal_set.length > 1 ? '<span class="text-amber-400 font-bold">[Legit, Fraud]</span>' : `<span class="text-emerald-400">[${pkt.conformal_set.join("")}]</span>`}</td>
+          <td class="px-3 py-2">${tierBadge}</td>
+          <td class="px-3 py-2">${badge}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
 
     refreshQueue();
+    if (resultsContainer) {
+      resultsContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
   } catch (err) {
-    console.error("Error uploading CSV:", err);
+    console.error("Error processing CSV:", err);
+    if (statusBox) {
+      statusBox.classList.remove("hidden", "bg-indigo-950/60", "border-indigo-800", "text-indigo-300", "bg-emerald-950/60", "border-emerald-800", "text-emerald-300");
+      statusBox.classList.add("bg-rose-950/60", "border-rose-800", "text-rose-300");
+      statusBox.innerHTML = `<div class="flex items-center space-x-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i><span><b>Error processing CSV:</b> ${err.message}</span></div>`;
+      if (window.lucide) lucide.createIcons();
+    }
     alert("Error processing CSV: " + err.message);
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<i data-lucide="upload" class="w-4 h-4"></i><span>Process CSV Batch</span>`;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="upload" class="w-4 h-4"></i><span>Process CSV Batch</span>`;
+    }
     if (window.lucide) lucide.createIcons();
   }
 }

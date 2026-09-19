@@ -1,0 +1,11 @@
+transaction_id,amount,merchant_category,distance_from_home,distance_from_last_tx,ratio_to_median_price,repeat_retailer,used_chip,used_pin,online_order,velocity_1h,velocity_24h,device_trust_score,two_factor_auth_success
+TEST-TX-001,18.75,1,1.2,0.4,0.85,1,1,1,0,0,1,0.98,1
+TEST-TX-002,42.50,1,3.5,1.1,1.05,1,1,0,0,1,2,0.95,1
+TEST-TX-003,320.00,3,48.0,22.5,1.80,0,0,0,1,2,4,0.78,1
+TEST-TX-004,285.00,2,65.0,35.0,2.10,0,0,0,1,1,3,0.85,1
+TEST-TX-005,4850.00,5,185.0,95.0,5.80,0,0,0,1,3,6,0.30,0
+TEST-TX-006,3600.00,5,140.0,75.0,4.20,0,0,0,1,2,5,0.40,0
+TEST-TX-007,890.00,2,210.0,160.0,4.50,0,0,0,1,6,15,0.12,0
+TEST-TX-008,1250.00,2,175.0,120.0,4.80,0,0,0,1,5,11,0.18,0
+TEST-TX-009,12.99,4,0.8,0.2,0.75,1,1,0,0,0,1,0.99,1
+TEST-TX-010,195.00,3,38.0,18.0,1.65,0,1,0,0,1,2,0.82,1
