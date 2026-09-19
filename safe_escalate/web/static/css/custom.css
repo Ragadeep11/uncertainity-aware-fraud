@@ -1,0 +1,37 @@
+/* Custom styling for SafeEscalate Dashboard */
+
+.tab-btn {
+  color: #94a3b8;
+}
+
+.tab-btn:hover {
+  color: #f8fafc;
+  background-color: rgba(51, 65, 85, 0.5);
+}
+
+.tab-btn.active {
+  color: #ffffff;
+  background-color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+/* Glassmorphism card effects */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+/* Animations */
+@keyframes highlight-row {
+  0% {
+    background-color: rgba(99, 102, 241, 0.25);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.new-row-animation {
+  animation: highlight-row 1.5s ease-out;
+}
