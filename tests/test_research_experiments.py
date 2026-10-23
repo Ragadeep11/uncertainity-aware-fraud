@@ -96,6 +96,39 @@ class TestResearchExperimentSuite(unittest.TestCase):
         self.assertIn("throughput_blocks_per_sec", bench)
         self.assertGreater(bench["throughput_blocks_per_sec"], 100)
 
+    def test_argus_benchmark(self):
+        """Validates published ARGUS claims and empirical reproduction."""
+        argus_res = self.suite.run_argus_benchmark(
+            self.X_train, self.y_train, self.X_cal, self.y_cal, self.X_test, self.y_test, self.test_txs
+        )
+        self.assertIn("published_reference", argus_res)
+        self.assertIn("reproduced_empirical", argus_res)
+        self.assertIn("cost_policy_evaluation", argus_res)
+        self.assertEqual(argus_res["published_reference"]["auprc"], 0.880)
+        self.assertEqual(argus_res["published_reference"]["auroc"], 0.975)
+        self.assertIn("auprc", argus_res["reproduced_empirical"])
+        self.assertIn("selective_risk", argus_res["reproduced_empirical"])
+
+    def test_five_metric_families(self):
+        """Validates synthesis of all 5 research metric families."""
+        res_a = self.suite.run_experiment_a(self.X_train, self.y_train, self.X_test, self.y_test)
+        argus_res = self.suite.run_argus_benchmark(
+            self.X_train, self.y_train, self.X_cal, self.y_cal, self.X_test, self.y_test, self.test_txs
+        )
+        res_b = self.suite.run_experiment_b(
+            self.engine.base_classifier, self.engine.conformal_predictor, self.engine.uncertainty_estimator, self.X_test, self.y_test
+        )
+        res_c = self.suite.run_experiment_c(self.engine, self.test_txs)
+        res_d = self.suite.run_experiment_d(self.engine, self.test_txs)
+        res_e = self.suite.run_experiment_e(self.engine, self.test_txs)
+
+        families = self.suite.generate_five_metric_families(res_a, argus_res, res_b, res_c, res_d, res_e)
+        self.assertIn("family_1_fraud_detection", families)
+        self.assertIn("family_2_uncertainty_reliability", families)
+        self.assertIn("family_3_investigation_efficiency", families)
+        self.assertIn("family_4_hitl_burden", families)
+        self.assertIn("family_5_operational_cost", families)
+
 
 if __name__ == "__main__":
     unittest.main()

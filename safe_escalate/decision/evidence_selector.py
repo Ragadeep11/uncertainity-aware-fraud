@@ -1,4 +1,4 @@
-﻿"""
+"""
 Sequential Adaptive Evidence Selection Engine.
 Selects optimal investigative actions based on Value of Information (VoI)
 and Expected Uncertainty Reduction per unit cost.
@@ -73,10 +73,15 @@ AVAILABLE_EVIDENCE_SOURCES: Dict[str, EvidenceSource] = {
 }
 
 
+from safe_escalate.config import CostConfig
+
+
 class SequentialEvidenceSelector:
     """
     Orchestrates adaptive, multi-step evidence gathering.
     Applies Value of Information (VoI): Score(e) = E[ΔU(e)] / Cost(e)
+    and Expected Value of Sample Information:
+    Net Value(e) = Expected Loss Before - E[Expected Loss After(e)] - Cost(e).
     """
 
     def __init__(
@@ -90,6 +95,184 @@ class SequentialEvidenceSelector:
         self.max_budget = max_evidence_budget
         self.min_gain = min_uncertainty_gain
         self.rng = np.random.default_rng(random_seed)
+
+    @staticmethod
+    def compute_immediate_loss(
+        p: float, amount: float, cost_config: Optional[CostConfig] = None
+    ) -> Tuple[float, str]:
+        """
+        Computes immediate expected loss under optimal Bayes action without further information:
+        L_approve(p, A) = p * (A + C_penalty)
+        L_decline(p, A) = (1 - p) * (C_false_positive + 0.02 * A)
+        L*(p, A) = min(L_approve, L_decline)
+        """
+        cfg = cost_config or CostConfig()
+        c_fp = cfg.cost_false_positive + 0.02 * amount
+        loss_approve = p * (amount + cfg.cost_false_negative_penalty)
+        loss_decline = (1.0 - p) * c_fp
+        if loss_approve <= loss_decline:
+            return float(loss_approve), "APPROVE"
+        else:
+            return float(loss_decline), "DECLINE"
+
+    @staticmethod
+    def compute_expected_loss_human(
+        p: float, amount: float, cost_config: Optional[CostConfig] = None
+    ) -> float:
+        """
+        Computes expected operational cost if transaction is escalated to human review:
+        L_human = C_human + 0.03 * p * (A + C_penalty) + 0.02 * (1 - p) * (C_false_positive + 0.02 * A)
+        """
+        cfg = cost_config or CostConfig()
+        c_fp = cfg.cost_false_positive + 0.02 * amount
+        loss = (
+            cfg.cost_human_review
+            + 0.03 * p * (amount + cfg.cost_false_negative_penalty)
+            + 0.02 * (1.0 - p) * c_fp
+        )
+        return float(loss)
+
+    def calculate_net_value_of_sample_information(
+        self,
+        source: EvidenceSource,
+        p: float,
+        u: float,
+        amount: float,
+        cost_config: Optional[CostConfig] = None,
+    ) -> Dict[str, Any]:
+        """
+        Calculates the Expected Value of Sample Information (EVSI) and Net Value:
+        Net Value(e) = Expected Loss Before - E[Expected Loss After(e)] - Cost(e).
+        Under uncertainty-aware decision theory:
+        Loss(p, u, A) = BayesDecisionLoss(p, A) + λ * u * min(A, 5000.0)
+        Evidence is cost-beneficial if and only if Net Value(e) > 0.
+        """
+        cfg = cost_config or CostConfig()
+        lambda_risk = 0.02  # Risk premium weight per unit epistemic uncertainty
+        risk_exposure = lambda_risk * u * min(amount, 5000.0)
+
+        bayes_loss_before, action_before = self.compute_immediate_loss(p, amount, cfg)
+        loss_before = bayes_loss_before + risk_exposure
+
+        # Posterior uncertainty and branch shifts
+        reduction = source.expected_uncertainty_reduction
+        u_after = max(0.04, u * (1.0 - reduction))
+        risk_exposure_after = lambda_risk * u_after * min(amount, 5000.0)
+
+        shift = min(0.40, reduction * 0.90)
+        p_pos = min(0.99, p + shift * (1.0 - p))
+        p_neg = max(0.01, p - shift * p)
+
+        denom = max(1e-6, p_pos - p_neg)
+        q_pos = float(np.clip((p - p_neg) / denom, 0.05, 0.95))
+        q_neg = 1.0 - q_pos
+
+        loss_pos_bayes, _ = self.compute_immediate_loss(p_pos, amount, cfg)
+        loss_neg_bayes, _ = self.compute_immediate_loss(p_neg, amount, cfg)
+        expected_bayes_after = q_pos * loss_pos_bayes + q_neg * loss_neg_bayes
+        expected_loss_after = expected_bayes_after + risk_exposure_after
+
+        expected_loss_reduction = max(0.0, loss_before - expected_loss_after)
+        net_value = expected_loss_reduction - source.cost
+
+        return {
+            "evidence_key": source.key,
+            "evidence_name": source.name,
+            "cost": source.cost,
+            "loss_before": round(loss_before, 4),
+            "expected_loss_after": round(expected_loss_after, 4),
+            "expected_loss_reduction": round(expected_loss_reduction, 4),
+            "net_value": round(net_value, 4),
+            "is_cost_beneficial": bool(net_value > 0.0),
+            "action_before": action_before,
+        }
+
+    def rank_evidence_by_net_value(
+        self,
+        candidate_keys: List[str],
+        p: float,
+        u: float,
+        amount: float,
+        cost_config: Optional[CostConfig] = None,
+    ) -> List[Tuple[str, float, Dict[str, Any]]]:
+        """
+        Ranks candidate evidence sources by descending Net Value:
+        Net Value(e) = ΔLoss - Cost(e)
+        """
+        cfg = cost_config or CostConfig()
+        scored = []
+        for key in candidate_keys:
+            if key in AVAILABLE_EVIDENCE_SOURCES:
+                source = AVAILABLE_EVIDENCE_SOURCES[key]
+                info = self.calculate_net_value_of_sample_information(
+                    source, p, u, amount, cfg
+                )
+                scored.append((key, info["net_value"], info))
+        scored.sort(key=lambda item: item[1], reverse=True)
+        return scored
+
+    @staticmethod
+    def allocate_human_review_capacity(
+        candidates: List[Dict[str, Any]],
+        capacity_limit: int,
+        cost_config: Optional[CostConfig] = None,
+    ) -> Dict[str, Any]:
+        """
+        Routes transactions to human review subject to a finite human queue capacity.
+        Candidate transactions are prioritized by expected risk exposure savings from human review:
+        Savings = Amount * (Error_auto - Error_human) * Uncertainty - C_human.
+
+        - The top-K transactions with positive savings are routed to Human Review.
+        - The remaining overflow transactions are automatically resolved via Bayes optimal action.
+        """
+        cfg = cost_config or CostConfig()
+        scored_candidates = []
+        for c in candidates:
+            p = float(c.get("p_fraud", 0.5))
+            amount = float(c.get("amount", 100.0))
+            u = float(c.get("uncertainty", min(1.0, 4.0 * p * (1.0 - p))))
+
+            # Automated error rate under Bayes decision
+            auto_error = min(p, 1.0 - p)
+            human_error = 0.03  # Human review achieves 97% accuracy
+            error_reduction = max(0.0, auto_error - human_error)
+
+            # Expected loss savings from human intervention
+            savings = amount * error_reduction * u - cfg.cost_human_review
+
+            loss_auto, auto_action = SequentialEvidenceSelector.compute_immediate_loss(p, amount, cfg)
+            loss_human = SequentialEvidenceSelector.compute_expected_loss_human(p, amount, cfg)
+
+            item = dict(c)
+            item["loss_auto"] = round(loss_auto, 4)
+            item["loss_human"] = round(loss_human, 4)
+            item["expected_savings_from_human"] = round(savings, 4)
+            item["fallback_autonomous_action"] = auto_action
+            scored_candidates.append(item)
+
+        # Sort by expected savings descending (highest value of human attention first)
+        scored_candidates.sort(key=lambda x: x["expected_savings_from_human"], reverse=True)
+
+        admitted_to_human = scored_candidates[:max(0, capacity_limit)]
+        overflow_auto_resolved = scored_candidates[max(0, capacity_limit):]
+
+        for item in admitted_to_human:
+            item["assigned_decision"] = "HUMAN_ESCALATION"
+            item["review_status"] = "ADMITTED_TO_QUEUE"
+
+        for item in overflow_auto_resolved:
+            item["assigned_decision"] = item["fallback_autonomous_action"]
+            item["review_status"] = "CAPACITY_EXCEEDED_AUTONOMOUS_FALLBACK"
+
+        return {
+            "total_candidates": len(candidates),
+            "capacity_limit": capacity_limit,
+            "admitted_count": len(admitted_to_human),
+            "overflow_count": len(overflow_auto_resolved),
+            "admitted_to_human": admitted_to_human,
+            "overflow_auto_resolved": overflow_auto_resolved,
+            "capacity_utilization_pct": round(len(admitted_to_human) / max(1, capacity_limit) * 100, 1),
+        }
 
     def calculate_voi(
         self, source: EvidenceSource, current_uncertainty: float

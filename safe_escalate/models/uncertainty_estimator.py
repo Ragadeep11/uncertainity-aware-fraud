@@ -19,7 +19,7 @@ class UncertaintyEstimator:
     def __init__(self, n_neighbors: int = 15):
         self.n_neighbors = n_neighbors
         self.scaler = StandardScaler()
-        self.nn_model = NearestNeighbors(n_neighbors=n_neighbors, metric="euclidean", n_jobs=-1)
+        self.nn_model = NearestNeighbors(n_neighbors=n_neighbors, metric="euclidean", n_jobs=1)
         self.train_dist_95: float = 1.0
         self.feature_means: np.ndarray = np.array([])
         self.feature_stds: np.ndarray = np.array([])

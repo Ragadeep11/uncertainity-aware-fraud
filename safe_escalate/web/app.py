@@ -66,6 +66,31 @@ def initialize_system(n_samples: int = 50000, dataset_type: Optional[str] = None
     STATE["engine"] = engine
     STATE["test_txs"] = test_txs
     STATE["conformal_metrics"] = cal_metrics
+
+    # Seed initial demonstration blocks into the blockchain audit ledger
+    if engine and hasattr(engine, "blockchain_ledger") and len(engine.blockchain_ledger.chain) == 1:
+        seed_blocks = [
+            ("TX-CONFIDENT-GENUINE-01", 38.50, 0.01, 0.02, "APPROVE (CONFIDENT GENUINE)", 0, [], "Autonomous Tier-0 Resolution: High statistical confidence, negligible uncertainty."),
+            ("TX-STEPUP-2FA-VERIFIED-02", 280.00, 0.58, 0.12, "APPROVE (STEP-UP VERIFIED)", 1, [{"step": 1, "evidence_type": "transaction_history", "cost": 0.05, "summary": "Normal spending baseline matches 90-day history"}], "Tier-1 Resolution: Uncertainty collapsed after transaction history verification."),
+            ("TX-HYD-85000-OUTLIER-03", 85000.00, 0.72, 0.99, "DECLINE (STEP-UP CONFIRMED)", 1, [
+                {"step": 1, "evidence_type": "transaction_history", "cost": 0.05, "summary": "34x spike over normal cardholder average"},
+                {"step": 2, "evidence_type": "device_history", "cost": 0.10, "summary": "Unregistered new device hardware ID detected"}
+            ], "Tier-1 Resolution: Uncertainty collapsed to high fraud probability after device and transaction verification.")
+        ]
+        for tx_id, amt, p_init, p_fin, act, tier, traj, rat in seed_blocks:
+            engine.blockchain_ledger.record_investigation(
+                transaction_id=tx_id,
+                amount=amt,
+                initial_p_fraud=p_init,
+                initial_uncertainty=0.75 if tier > 0 else 0.05,
+                final_p_fraud=p_fin,
+                final_uncertainty=0.15 if tier > 0 else 0.05,
+                final_action=act,
+                escalation_tier=tier,
+                investigation_trajectory=traj,
+                investigator_rationale=rat,
+            )
+
     print(f"System successfully initialized with {len(test_txs)} test transactions ready for evaluation.")
 
 
@@ -617,7 +642,7 @@ async def restore_blockchain_block(payload: RestorePayload):
 
 
 @app.post("/api/benchmark/run")
-async def run_benchmark_endpoint():
+def run_benchmark_endpoint():
     """Triggers an empirical benchmark evaluation comparing all baselines."""
     suite = BenchmarkSuite(config=STATE["config"])
     results = suite.run_benchmark(n_samples=6000)
@@ -626,7 +651,7 @@ async def run_benchmark_endpoint():
 
 
 @app.get("/api/benchmark/latest")
-async def get_latest_benchmark():
+def get_latest_benchmark():
     if STATE["benchmark_results"] is None:
         # Run standard benchmark if not yet executed
         suite = BenchmarkSuite(config=STATE["config"])
@@ -663,7 +688,7 @@ async def update_config_params(payload: ConfigUpdatePayload):
 
 
 @app.get("/api/research/experiments")
-async def get_research_experiments():
+def get_research_experiments():
     """Returns the comprehensive academic research experiment battery (A-E, ablations, statistical significance, blockchain)."""
     if STATE.get("research_results") is None:
         from safe_escalate.eval.research_experiments import ResearchExperimentSuite
@@ -673,7 +698,7 @@ async def get_research_experiments():
 
 
 @app.post("/api/research/run-experiments")
-async def run_research_experiments_endpoint(samples: int = 1000):
+def run_research_experiments_endpoint(samples: int = 1000):
     """Triggers an empirical execution of all research experiments, ablations, and hypothesis tests."""
     from safe_escalate.eval.research_experiments import ResearchExperimentSuite
     suite = ResearchExperimentSuite(config=STATE["config"], dataset_type=STATE.get("dataset_type", "kaggle"))
